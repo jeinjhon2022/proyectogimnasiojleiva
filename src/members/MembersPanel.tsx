@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
+  Activity,
+  Banknote,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  UserX,
+} from 'lucide-react';
+import {
   ApiError,
   createAttendance,
   createMember,
@@ -27,6 +39,13 @@ import {
   type Role,
   type TokenGetter,
 } from '../api';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Dialog } from '../components/ui/dialog';
+import { Input, Label, Select } from '../components/ui/input';
+import { Badge, type BadgeTone } from '../components/ui/badge';
+
+const PAGE_SIZE = 10;
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Efectivo',
@@ -35,15 +54,21 @@ const METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'Otro',
 };
 
-const STATUS_LABELS: Record<MembershipStatus, string> = {
+const MEMBERSHIP_STATUS_TONE: Record<MembershipStatus, BadgeTone> = {
+  pending: 'warning',
+  active: 'success',
+  expired: 'danger',
+  suspended: 'warning',
+  cancelled: 'default',
+};
+
+const MEMBERSHIP_STATUS_LABEL: Record<MembershipStatus, string> = {
   pending: 'Pendiente',
   active: 'Activa',
   expired: 'Vencida',
   suspended: 'Suspendida',
   cancelled: 'Cancelada',
 };
-
-const PAGE_SIZE = 10;
 
 type ListState =
   { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'success'; data: MembersPage };
@@ -61,7 +86,7 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
   const [query, setQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [state, setState] = useState<ListState>({ kind: 'loading' });
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary | null>(null);
@@ -112,120 +137,131 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
   }
 
   return (
-    <section className="w-full max-w-3xl text-left">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Socios</h2>
-          {attendanceSummary && (
-            <p className="text-xs text-slate-500">
-              Asistencias hoy: {attendanceSummary.today} · últimos 30 días:{' '}
-              {attendanceSummary.last30Days}
-            </p>
-          )}
+          <CardTitle>Socios</CardTitle>
+          <CardDescription>
+            {attendanceSummary
+              ? `Asistencias hoy: ${attendanceSummary.today} · últimos 30 días: ${attendanceSummary.last30Days}`
+              : 'Gestión de socios del gimnasio'}
+          </CardDescription>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateForm((value) => !value)}
-          className="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          {showCreateForm ? 'Cancelar' : 'Nuevo socio'}
-        </button>
-      </div>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4" />
+          Nuevo socio
+        </Button>
+      </CardHeader>
 
-      {showCreateForm && (
+      <CardContent className="flex flex-col gap-4">
+        <form onSubmit={handleSearchSubmit} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              type="text"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Buscar por nombre, correo, teléfono o código"
+              aria-label="Buscar socios"
+              className="pl-9"
+            />
+          </div>
+          <Button type="submit" variant="outline">
+            Buscar
+          </Button>
+        </form>
+
+        {state.kind === 'loading' && (
+          <p role="status" className="flex items-center gap-2 py-6 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando socios…
+          </p>
+        )}
+
+        {state.kind === 'error' && (
+          <p role="alert" className="py-6 text-sm text-red-600">
+            {state.message}
+          </p>
+        )}
+
+        {state.kind === 'success' && state.data.items.length === 0 && (
+          <p className="py-6 text-center text-sm text-slate-500">
+            No hay socios que coincidan con la búsqueda.
+          </p>
+        )}
+
+        {state.kind === 'success' && state.data.items.length > 0 && (
+          <>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Código</th>
+                    <th className="px-4 py-2.5 font-medium">Nombre</th>
+                    <th className="px-4 py-2.5 font-medium">Correo</th>
+                    <th className="px-4 py-2.5 font-medium">Teléfono</th>
+                    <th className="px-4 py-2.5 font-medium">Estado</th>
+                    <th className="px-4 py-2.5 font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {state.data.items.map((member) => (
+                    <MemberRow
+                      key={member.id}
+                      member={member}
+                      getToken={getToken}
+                      plans={plans}
+                      role={role}
+                      onChanged={reload}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between text-sm text-slate-500">
+              <span>
+                Página {state.data.page} de{' '}
+                {Math.max(1, Math.ceil(state.data.total / state.data.pageSize))} ({state.data.total}{' '}
+                socios)
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page * PAGE_SIZE >= state.data.total}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  Siguiente <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+
+      <Dialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        title="Nuevo socio"
+      >
         <CreateMemberForm
           getToken={getToken}
           onCreated={() => {
-            setShowCreateForm(false);
+            setShowCreateDialog(false);
             setPage(1);
             reload();
           }}
         />
-      )}
-
-      <form onSubmit={handleSearchSubmit} className="mb-3 flex gap-2">
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Buscar por nombre, correo, teléfono o código"
-          aria-label="Buscar socios"
-          className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
-        />
-        <button type="submit" className="rounded border border-slate-300 px-3 py-1 text-sm">
-          Buscar
-        </button>
-      </form>
-
-      {state.kind === 'loading' && <p role="status">Cargando socios…</p>}
-
-      {state.kind === 'error' && (
-        <p role="alert" className="text-red-600">
-          {state.message}
-        </p>
-      )}
-
-      {state.kind === 'success' && state.data.items.length === 0 && (
-        <p>No hay socios que coincidan con la búsqueda.</p>
-      )}
-
-      {state.kind === 'success' && state.data.items.length > 0 && (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-300 text-left">
-                  <th className="py-1 pr-2">Código</th>
-                  <th className="py-1 pr-2">Nombre</th>
-                  <th className="py-1 pr-2">Correo</th>
-                  <th className="py-1 pr-2">Teléfono</th>
-                  <th className="py-1 pr-2">Estado</th>
-                  <th className="py-1 pr-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.data.items.map((member) => (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    getToken={getToken}
-                    plans={plans}
-                    role={role}
-                    onChanged={reload}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
-            <span>
-              Página {state.data.page} de{' '}
-              {Math.max(1, Math.ceil(state.data.total / state.data.pageSize))} ({state.data.total}{' '}
-              socios)
-            </span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((value) => Math.max(1, value - 1))}
-                className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={page * PAGE_SIZE >= state.data.total}
-                onClick={() => setPage((value) => value + 1)}
-                className="rounded border border-slate-300 px-2 py-1 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-    </section>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -257,37 +293,37 @@ function CreateMemberForm({ getToken, onCreated }: CreateMemberFormProps) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mb-4 flex flex-col gap-2 rounded border border-slate-300 p-3"
-    >
-      <label className="text-sm">
-        Nombre completo
-        <input
+    <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-3">
+      <div>
+        <Label htmlFor="new-member-name">Nombre completo</Label>
+        <Input
+          id="new-member-name"
           required
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1"
         />
-      </label>
-      <label className="text-sm">
-        Correo
-        <input
+      </div>
+      <div>
+        <Label htmlFor="new-member-email">Correo</Label>
+        <Input
+          id="new-member-email"
           required
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1"
         />
-      </label>
-      <label className="text-sm">
-        Teléfono (opcional)
-        <input
+      </div>
+      <div>
+        <Label htmlFor="new-member-phone">Teléfono (opcional)</Label>
+        <Input
+          id="new-member-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
-          className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          className="mt-1"
         />
-      </label>
+      </div>
 
       {submitState.kind === 'error' && (
         <p role="alert" className="text-sm text-red-600">
@@ -295,13 +331,12 @@ function CreateMemberForm({ getToken, onCreated }: CreateMemberFormProps) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={submitState.kind === 'submitting'}
-        className="self-start rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {submitState.kind === 'submitting' ? 'Guardando…' : 'Guardar socio'}
-      </button>
+      <div className="mt-1 flex justify-end">
+        <Button type="submit" disabled={submitState.kind === 'submitting'}>
+          {submitState.kind === 'submitting' && <Loader2 className="h-4 w-4 animate-spin" />}
+          Guardar socio
+        </Button>
+      </div>
     </form>
   );
 }
@@ -314,32 +349,13 @@ interface MemberRowProps {
   onChanged: () => void;
 }
 
+type Section = null | 'membership' | 'payments' | 'attendance';
+
 function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [showMembership, setShowMembership] = useState(false);
-  const [showPayments, setShowPayments] = useState(false);
-  const [showAttendance, setShowAttendance] = useState(false);
-  const [fullName, setFullName] = useState(member.fullName);
-  // MembersPanel solo se monta para admin/receptionist (App.tsx), que siempre ven el
-  // correo real; el `?? ''` es solo para que el tipo cierre con la vista de entrenador.
-  const [email, setEmail] = useState(member.email ?? '');
-  const [phone, setPhone] = useState(member.phone ?? '');
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [openSection, setOpenSection] = useState<Section>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function handleSave() {
-    setBusy(true);
-    setError(null);
-    try {
-      await updateMember(getToken, member.id, { fullName, email, phone: phone || null });
-      setEditing(false);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el cambio');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   // Acción sensible: se confirma antes de ejecutarla (CLAUDE.md sección 9).
   async function handleDeactivate() {
@@ -360,143 +376,196 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
     }
   }
 
-  if (editing) {
-    return (
-      <tr className="border-b border-slate-200">
-        <td className="py-1 pr-2">{member.memberCode}</td>
-        <td className="py-1 pr-2">
-          <input
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
-            className="w-full rounded border border-slate-300 px-1 py-0.5 text-sm"
-          />
-        </td>
-        <td className="py-1 pr-2">
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded border border-slate-300 px-1 py-0.5 text-sm"
-          />
-        </td>
-        <td className="py-1 pr-2">
-          <input
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            className="w-full rounded border border-slate-300 px-1 py-0.5 text-sm"
-          />
-        </td>
-        <td className="py-1 pr-2">{member.isActive ? 'Activo' : 'Inactivo'}</td>
-        <td className="py-1 pr-2">
-          <div className="flex flex-col gap-1">
-            {error && (
-              <span role="alert" className="text-red-600">
-                {error}
-              </span>
-            )}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={busy}
-                className="text-blue-700 underline disabled:opacity-50"
-              >
-                Guardar
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                disabled={busy}
-                className="text-slate-600 underline"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </td>
-      </tr>
-    );
+  function toggleSection(section: Section) {
+    setOpenSection((current) => (current === section ? null : section));
   }
 
   return (
     <>
-      <tr className="border-b border-slate-200">
-        <td className="py-1 pr-2">{member.memberCode}</td>
-        <td className="py-1 pr-2">{member.fullName}</td>
-        <td className="py-1 pr-2">{member.email}</td>
-        <td className="py-1 pr-2">{member.phone ?? '—'}</td>
-        <td className="py-1 pr-2">{member.isActive ? 'Activo' : 'Inactivo'}</td>
-        <td className="py-1 pr-2">
-          <div className="flex flex-col gap-1">
-            {error && (
-              <span role="alert" className="text-red-600">
-                {error}
-              </span>
+      <tr className="hover:bg-slate-50">
+        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-slate-500">
+          {member.memberCode}
+        </td>
+        <td className="px-4 py-2.5 font-medium text-slate-900">{member.fullName}</td>
+        <td className="px-4 py-2.5 text-slate-600">{member.email ?? '—'}</td>
+        <td className="px-4 py-2.5 text-slate-600">{member.phone ?? '—'}</td>
+        <td className="px-4 py-2.5">
+          <Badge tone={member.isActive ? 'success' : 'default'}>
+            {member.isActive ? 'Activo' : 'Inactivo'}
+          </Badge>
+        </td>
+        <td className="px-4 py-2.5">
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Editar"
+              aria-label="Editar"
+              onClick={() => setShowEditDialog(true)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={openSection === 'membership' ? 'secondary' : 'ghost'}
+              size="icon"
+              title="Membresía"
+              aria-label="Membresía"
+              aria-pressed={openSection === 'membership'}
+              onClick={() => toggleSection('membership')}
+            >
+              <CreditCard className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={openSection === 'payments' ? 'secondary' : 'ghost'}
+              size="icon"
+              title="Pagos"
+              aria-label="Pagos"
+              aria-pressed={openSection === 'payments'}
+              onClick={() => toggleSection('payments')}
+            >
+              <Banknote className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={openSection === 'attendance' ? 'secondary' : 'ghost'}
+              size="icon"
+              title="Asistencia"
+              aria-label="Asistencia"
+              aria-pressed={openSection === 'attendance'}
+              onClick={() => toggleSection('attendance')}
+            >
+              <Activity className="h-4 w-4" />
+            </Button>
+            {member.isActive && role === 'admin' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Desactivar"
+                aria-label="Desactivar"
+                disabled={busy}
+                onClick={() => void handleDeactivate()}
+                className="text-red-600 hover:bg-red-50"
+              >
+                <UserX className="h-4 w-4" />
+              </Button>
             )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-blue-700 underline"
-              >
-                Editar
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMembership((value) => !value)}
-                className="text-blue-700 underline"
-              >
-                {showMembership ? 'Ocultar membresía' : 'Membresía'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPayments((value) => !value)}
-                className="text-blue-700 underline"
-              >
-                {showPayments ? 'Ocultar pagos' : 'Pagos'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAttendance((value) => !value)}
-                className="text-blue-700 underline"
-              >
-                {showAttendance ? 'Ocultar asistencia' : 'Asistencia'}
-              </button>
-              {member.isActive && role === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => void handleDeactivate()}
-                  disabled={busy}
-                  className="text-red-700 underline disabled:opacity-50"
-                >
-                  Desactivar
-                </button>
-              )}
-            </div>
           </div>
+          {error && (
+            <p role="alert" className="mt-1 text-xs text-red-600">
+              {error}
+            </p>
+          )}
         </td>
       </tr>
-      {showMembership && (
-        <tr className="border-b border-slate-200 bg-slate-50">
-          <td colSpan={6} className="p-2">
-            <MembershipSection memberId={member.id} plans={plans} getToken={getToken} />
+
+      {openSection && (
+        <tr className="bg-slate-50">
+          <td colSpan={6} className="p-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              {openSection === 'membership' && (
+                <MembershipSection memberId={member.id} plans={plans} getToken={getToken} />
+              )}
+              {openSection === 'payments' && (
+                <PaymentsSection memberId={member.id} role={role} getToken={getToken} />
+              )}
+              {openSection === 'attendance' && (
+                <AttendanceSection memberId={member.id} getToken={getToken} onChanged={onChanged} />
+              )}
+            </div>
           </td>
         </tr>
       )}
-      {showPayments && (
-        <tr className="border-b border-slate-200 bg-slate-50">
-          <td colSpan={6} className="p-2">
-            <PaymentsSection memberId={member.id} role={role} getToken={getToken} />
-          </td>
-        </tr>
-      )}
-      {showAttendance && (
-        <tr className="border-b border-slate-200 bg-slate-50">
-          <td colSpan={6} className="p-2">
-            <AttendanceSection memberId={member.id} getToken={getToken} onChanged={onChanged} />
-          </td>
-        </tr>
-      )}
+
+      <Dialog
+        open={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        title={`Editar a ${member.fullName}`}
+      >
+        <EditMemberForm
+          member={member}
+          getToken={getToken}
+          onSaved={() => {
+            setShowEditDialog(false);
+            onChanged();
+          }}
+        />
+      </Dialog>
     </>
+  );
+}
+
+function EditMemberForm({
+  member,
+  getToken,
+  onSaved,
+}: {
+  member: Member;
+  getToken: TokenGetter;
+  onSaved: () => void;
+}) {
+  const [fullName, setFullName] = useState(member.fullName);
+  const [email, setEmail] = useState(member.email ?? '');
+  const [phone, setPhone] = useState(member.phone ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await updateMember(getToken, member.id, { fullName, email, phone: phone || null });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el cambio');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-3">
+      <div>
+        <Label htmlFor="edit-member-name">Nombre completo</Label>
+        <Input
+          id="edit-member-name"
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="edit-member-email">Correo</Label>
+        <Input
+          id="edit-member-email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="edit-member-phone">Teléfono</Label>
+        <Input
+          id="edit-member-phone"
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          className="mt-1"
+        />
+      </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-1 flex justify-end">
+        <Button type="submit" disabled={busy}>
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          Guardar cambios
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -569,10 +638,16 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
     }
   }
 
-  if (state.kind === 'loading') return <p role="status">Cargando membresía…</p>;
+  if (state.kind === 'loading') {
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" /> Cargando membresía…
+      </p>
+    );
+  }
   if (state.kind === 'error') {
     return (
-      <p role="alert" className="text-red-600">
+      <p role="alert" className="text-sm text-red-600">
         {state.message}
       </p>
     );
@@ -582,14 +657,19 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
   const activePlans = plans.filter((plan) => plan.isActive);
 
   return (
-    <div className="flex flex-col gap-2 text-sm">
+    <div className="flex flex-col gap-3 text-sm">
       {latest ? (
-        <p>
-          Plan <strong>{latest.planName}</strong> — {STATUS_LABELS[latest.status]} · vigencia{' '}
-          {latest.startDate} a {latest.endDate} · USD {latest.priceAgreed}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span>
+            Plan <strong>{latest.planName}</strong> · vigencia {latest.startDate} a {latest.endDate}{' '}
+            · USD {latest.priceAgreed}
+          </span>
+          <Badge tone={MEMBERSHIP_STATUS_TONE[latest.status]}>
+            {MEMBERSHIP_STATUS_LABEL[latest.status]}
+          </Badge>
+        </div>
       ) : (
-        <p>Sin membresía asignada todavía.</p>
+        <p className="text-slate-500">Sin membresía asignada todavía.</p>
       )}
 
       {actionError && (
@@ -599,11 +679,11 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           value={selectedPlanId}
           onChange={(event) => setSelectedPlanId(event.target.value)}
           aria-label="Elegir plan de membresía"
-          className="rounded border border-slate-300 px-1 py-0.5"
+          className="w-auto"
         >
           <option value="">Elegir plan…</option>
           {activePlans.map((plan) => (
@@ -611,45 +691,44 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
               {plan.name} (USD {plan.price}, {plan.durationDays} días)
             </option>
           ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => void handleAssign()}
+        </Select>
+        <Button
+          size="sm"
+          variant="outline"
           disabled={busy || !selectedPlanId}
-          className="rounded border border-slate-300 px-2 py-0.5 disabled:opacity-40"
+          onClick={() => void handleAssign()}
         >
           Asignar
-        </button>
+        </Button>
         {latest && (
-          <button
-            type="button"
-            onClick={() => void handleRenew(latest.id)}
+          <Button
+            size="sm"
+            variant="outline"
             disabled={busy}
-            className="rounded border border-slate-300 px-2 py-0.5 disabled:opacity-40"
+            onClick={() => void handleRenew(latest.id)}
           >
             Renovar (mismo plan)
-          </button>
+          </Button>
         )}
       </div>
     </div>
   );
 }
 
-interface PaymentsSectionProps {
+function PaymentsSection({
+  memberId,
+  role,
+  getToken,
+}: {
   memberId: string;
   role: Role;
   getToken: TokenGetter;
-}
-
-type PaymentsSectionState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'success'; payments: Payment[] };
-
-// Últimos pagos del socio + alta de un pago nuevo. Anular (CLAUDE.md sección 5) solo
-// se ofrece a Administrador; ocultarlo en el frontend es solo UX, el Worker lo exige igual.
-function PaymentsSection({ memberId, role, getToken }: PaymentsSectionProps) {
-  const [state, setState] = useState<PaymentsSectionState>({ kind: 'loading' });
+}) {
+  const [state, setState] = useState<
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'success'; payments: Payment[] }
+  >({ kind: 'loading' });
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
@@ -722,37 +801,42 @@ function PaymentsSection({ memberId, role, getToken }: PaymentsSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2 text-sm">
-      {state.kind === 'loading' && <p role="status">Cargando pagos…</p>}
+    <div className="flex flex-col gap-3 text-sm">
+      {state.kind === 'loading' && (
+        <p role="status" className="flex items-center gap-2 text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando pagos…
+        </p>
+      )}
       {state.kind === 'error' && (
         <p role="alert" className="text-red-600">
           {state.message}
         </p>
       )}
       {state.kind === 'success' && state.payments.length === 0 && (
-        <p>Sin pagos registrados todavía.</p>
+        <p className="text-slate-500">Sin pagos registrados todavía.</p>
       )}
 
       {state.kind === 'success' && state.payments.length > 0 && (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-1.5">
           {state.payments.map((payment) => (
             <li key={payment.id} className="flex flex-wrap items-center gap-2">
               <span>
                 USD {payment.amount} · {METHOD_LABELS[payment.method]} ·{' '}
                 {payment.paymentDate.slice(0, 10)}
               </span>
-              <span className={payment.status === 'voided' ? 'text-red-600' : 'text-green-700'}>
+              <Badge tone={payment.status === 'voided' ? 'danger' : 'success'}>
                 {payment.status === 'voided' ? `Anulado (${payment.voidReason})` : 'Completado'}
-              </span>
+              </Badge>
               {payment.status === 'completed' && role === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => void handleVoid(payment.id)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-red-600 underline hover:bg-transparent hover:text-red-700"
                   disabled={busy}
-                  className="text-red-700 underline disabled:opacity-50"
+                  onClick={() => void handleVoid(payment.id)}
                 >
                   Anular
-                </button>
+                </Button>
               )}
             </li>
           ))}
@@ -769,7 +853,7 @@ function PaymentsSection({ memberId, role, getToken }: PaymentsSectionProps) {
         onSubmit={(event) => void handleSubmit(event)}
         className="flex flex-wrap items-center gap-2"
       >
-        <input
+        <Input
           type="number"
           min="0.01"
           step="0.01"
@@ -778,54 +862,49 @@ function PaymentsSection({ memberId, role, getToken }: PaymentsSectionProps) {
           placeholder="Importe USD"
           aria-label="Importe del pago en USD"
           required
-          className="w-28 rounded border border-slate-300 px-1 py-0.5"
+          className="w-28"
         />
-        <select
+        <Select
           value={method}
           onChange={(event) => setMethod(event.target.value as PaymentMethod)}
           aria-label="Método de pago"
-          className="rounded border border-slate-300 px-1 py-0.5"
+          className="w-auto"
         >
           {Object.entries(METHOD_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
           ))}
-        </select>
-        <input
+        </Select>
+        <Input
           value={reference}
           onChange={(event) => setReference(event.target.value)}
           placeholder="Referencia (opcional)"
           aria-label="Referencia del pago"
-          className="rounded border border-slate-300 px-1 py-0.5"
+          className="w-40"
         />
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded border border-slate-300 px-2 py-0.5 disabled:opacity-40"
-        >
+        <Button type="submit" size="sm" variant="outline" disabled={busy}>
           Registrar pago
-        </button>
+        </Button>
       </form>
     </div>
   );
 }
 
-interface AttendanceSectionProps {
+function AttendanceSection({
+  memberId,
+  getToken,
+  onChanged,
+}: {
   memberId: string;
   getToken: TokenGetter;
   onChanged: () => void;
-}
-
-type AttendanceSectionState =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'success'; records: AttendanceRecord[] };
-
-// Registro manual de asistencia + últimas visitas del socio. La ventana de duplicados
-// (1 hora, PLAN.md sección 4) la aplica el Worker; aquí solo se muestra el error tal cual.
-function AttendanceSection({ memberId, getToken, onChanged }: AttendanceSectionProps) {
-  const [state, setState] = useState<AttendanceSectionState>({ kind: 'loading' });
+}) {
+  const [state, setState] = useState<
+    | { kind: 'loading' }
+    | { kind: 'error'; message: string }
+    | { kind: 'success'; records: AttendanceRecord[] }
+  >({ kind: 'loading' });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -868,15 +947,19 @@ function AttendanceSection({ memberId, getToken, onChanged }: AttendanceSectionP
   }
 
   return (
-    <div className="flex flex-col gap-2 text-sm">
-      {state.kind === 'loading' && <p role="status">Cargando asistencia…</p>}
+    <div className="flex flex-col gap-3 text-sm">
+      {state.kind === 'loading' && (
+        <p role="status" className="flex items-center gap-2 text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando asistencia…
+        </p>
+      )}
       {state.kind === 'error' && (
         <p role="alert" className="text-red-600">
           {state.message}
         </p>
       )}
       {state.kind === 'success' && state.records.length === 0 && (
-        <p>Sin asistencias registradas todavía.</p>
+        <p className="text-slate-500">Sin asistencias registradas todavía.</p>
       )}
 
       {state.kind === 'success' && state.records.length > 0 && (
@@ -893,14 +976,15 @@ function AttendanceSection({ memberId, getToken, onChanged }: AttendanceSectionP
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={() => void handleRegister()}
+      <Button
+        size="sm"
+        variant="outline"
+        className="self-start"
         disabled={busy}
-        className="self-start rounded border border-slate-300 px-2 py-0.5 disabled:opacity-40"
+        onClick={() => void handleRegister()}
       >
         Registrar asistencia ahora
-      </button>
+      </Button>
     </div>
   );
 }

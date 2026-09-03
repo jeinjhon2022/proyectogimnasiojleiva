@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CalendarCheck, ClipboardList, IdCard, Loader2 } from 'lucide-react';
 import {
   ApiError,
   getAttendanceSummary,
@@ -11,6 +12,8 @@ import {
   type MyRoutineResponse,
   type TokenGetter,
 } from '../api';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge, type BadgeTone } from '../components/ui/badge';
 
 const STATUS_LABELS: Record<MembershipStatus, string> = {
   pending: 'Pendiente',
@@ -18,6 +21,14 @@ const STATUS_LABELS: Record<MembershipStatus, string> = {
   expired: 'Vencida',
   suspended: 'Suspendida',
   cancelled: 'Cancelada',
+};
+
+const STATUS_TONE: Record<MembershipStatus, BadgeTone> = {
+  pending: 'warning',
+  active: 'success',
+  expired: 'danger',
+  suspended: 'warning',
+  cancelled: 'default',
 };
 
 interface MemberDashboardProps {
@@ -29,7 +40,7 @@ interface MemberDashboardProps {
 // partir de su propia cuenta (nunca eligiendo un memberId).
 export default function MemberDashboard({ getToken }: MemberDashboardProps) {
   return (
-    <div className="flex w-full max-w-md flex-col gap-6 text-left">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
       <MyMembershipSection getToken={getToken} />
       <MyAttendanceSection getToken={getToken} />
       <MyRoutineSection getToken={getToken} />
@@ -69,24 +80,40 @@ function MyMembershipSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <section>
-      <h2 className="mb-2 text-lg font-semibold">Mi membresía</h2>
-      {state.kind === 'loading' && <p role="status">Cargando…</p>}
-      {state.kind === 'none' && (
-        <p className="text-sm">Todavía no tienes una membresía registrada.</p>
-      )}
-      {state.kind === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
-          {state.message}
-        </p>
-      )}
-      {state.kind === 'success' && (
-        <p className="text-sm">
-          Plan <strong>{state.data.planName}</strong> — {STATUS_LABELS[state.data.status]} ·
-          vigencia {state.data.startDate} a {state.data.endDate}
-        </p>
-      )}
-    </section>
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <IdCard className="h-5 w-5 text-slate-400" />
+        <CardTitle>Mi membresía</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {state.kind === 'loading' && (
+          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+          </p>
+        )}
+        {state.kind === 'none' && (
+          <p className="text-sm text-slate-500">Todavía no tienes una membresía registrada.</p>
+        )}
+        {state.kind === 'error' && (
+          <p role="alert" className="text-sm text-red-600">
+            {state.message}
+          </p>
+        )}
+        {state.kind === 'success' && (
+          <div className="flex flex-col gap-2 text-sm">
+            <p>
+              Plan <strong>{state.data.planName}</strong>
+            </p>
+            <Badge tone={STATUS_TONE[state.data.status]} className="w-fit">
+              {STATUS_LABELS[state.data.status]}
+            </Badge>
+            <p className="text-slate-500">
+              Vigencia: {state.data.startDate} a {state.data.endDate}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -122,25 +149,34 @@ function MyAttendanceSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <section>
-      <h2 className="mb-2 text-lg font-semibold">Mi asistencia</h2>
-      {state.kind === 'loading' && <p role="status">Cargando…</p>}
-      {state.kind === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
-          {state.message}
-        </p>
-      )}
-      {state.kind === 'success' && state.records.length === 0 && (
-        <p className="text-sm">Sin visitas registradas todavía.</p>
-      )}
-      {state.kind === 'success' && state.records.length > 0 && (
-        <ul className="flex flex-col gap-1 text-sm">
-          {state.records.map((record) => (
-            <li key={record.id}>{new Date(record.checkedInAt).toLocaleString('es')}</li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <CalendarCheck className="h-5 w-5 text-slate-400" />
+        <CardTitle>Mi asistencia</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {state.kind === 'loading' && (
+          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
+          </p>
+        )}
+        {state.kind === 'error' && (
+          <p role="alert" className="text-sm text-red-600">
+            {state.message}
+          </p>
+        )}
+        {state.kind === 'success' && state.records.length === 0 && (
+          <p className="text-sm text-slate-500">Sin visitas registradas todavía.</p>
+        )}
+        {state.kind === 'success' && state.records.length > 0 && (
+          <ul className="flex flex-col gap-1.5 text-sm text-slate-600">
+            {state.records.map((record) => (
+              <li key={record.id}>{new Date(record.checkedInAt).toLocaleString('es')}</li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -176,35 +212,46 @@ function MyRoutineSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <section>
-      <h2 className="mb-2 text-lg font-semibold">Mi rutina</h2>
-      {state.kind === 'loading' && <p role="status">Cargando…</p>}
-      {state.kind === 'none' && <p className="text-sm">Todavía no tienes una rutina asignada.</p>}
-      {state.kind === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
-          {state.message}
-        </p>
-      )}
-      {state.kind === 'success' && (
-        <div>
-          <p className="mb-2 text-sm text-slate-600">
-            {state.data.routine.name} — asignada el {state.data.assignedAt.slice(0, 10)}
+    <Card>
+      <CardHeader className="flex-row items-center gap-2">
+        <ClipboardList className="h-5 w-5 text-slate-400" />
+        <CardTitle>Mi rutina</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {state.kind === 'loading' && (
+          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
           </p>
-          <ol className="flex flex-col gap-2">
-            {state.data.routine.exercises.map((exercise) => (
-              <li key={exercise.id} className="rounded border border-slate-300 p-2 text-sm">
-                <p className="font-medium">{exercise.exerciseName}</p>
-                <p className="text-slate-600">
-                  {exercise.sets ? `${exercise.sets} series` : ''}
-                  {exercise.reps ? ` × ${exercise.reps} reps` : ''}
-                  {exercise.restSeconds ? ` · ${exercise.restSeconds}s descanso` : ''}
-                </p>
-                {exercise.notes && <p className="text-slate-500">{exercise.notes}</p>}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-    </section>
+        )}
+        {state.kind === 'none' && (
+          <p className="text-sm text-slate-500">Todavía no tienes una rutina asignada.</p>
+        )}
+        {state.kind === 'error' && (
+          <p role="alert" className="text-sm text-red-600">
+            {state.message}
+          </p>
+        )}
+        {state.kind === 'success' && (
+          <div>
+            <p className="mb-2 text-sm text-slate-500">
+              {state.data.routine.name} — asignada el {state.data.assignedAt.slice(0, 10)}
+            </p>
+            <ol className="flex flex-col gap-2">
+              {state.data.routine.exercises.map((exercise) => (
+                <li key={exercise.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
+                  <p className="font-medium text-slate-900">{exercise.exerciseName}</p>
+                  <p className="text-slate-500">
+                    {exercise.sets ? `${exercise.sets} series` : ''}
+                    {exercise.reps ? ` × ${exercise.reps} reps` : ''}
+                    {exercise.restSeconds ? ` · ${exercise.restSeconds}s descanso` : ''}
+                  </p>
+                  {exercise.notes && <p className="text-slate-400">{exercise.notes}</p>}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
