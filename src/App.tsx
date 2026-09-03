@@ -65,7 +65,7 @@ function scrollToSection(id: string) {
 function BrandMark() {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-ink">
+      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-on-accent">
         <Dumbbell className="h-5 w-5" strokeWidth={2.5} />
       </div>
       <span className="font-display text-xl uppercase leading-none tracking-wide text-chalk">
@@ -97,12 +97,12 @@ function SignInScreen() {
         appearance={{
           variables: {
             colorPrimary: '#ff4d1f',
-            colorBackground: '#201d17',
-            colorInputBackground: '#16140f',
-            colorInputText: '#f4efe4',
-            colorText: '#f4efe4',
-            colorTextSecondary: '#a89c88',
-            colorNeutral: '#a89c88',
+            colorBackground: '#ffffff',
+            colorInputBackground: '#f1f3ee',
+            colorInputText: '#211d17',
+            colorText: '#211d17',
+            colorTextSecondary: '#6f6656',
+            colorNeutral: '#6f6656',
             borderRadius: '0.375rem',
             fontFamily: 'Inter, sans-serif',
           },

@@ -6,7 +6,7 @@ export type BadgeTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 // Estilo "etiqueta de placa/casillero": esquinas rectas, mono en mayúsculas con
 // tracking amplio y un punto de estado, en vez del pill genérico de shadcn.
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  default: 'bg-surface-raised text-chalk-muted before:bg-chalk-faint',
+  default: 'bg-surface-raised text-chalk-muted before:bg-chalk-muted',
   success: 'bg-success-soft text-success before:bg-success',
   warning: 'bg-warning-soft text-warning before:bg-warning',
   danger: 'bg-danger-soft text-danger before:bg-danger',

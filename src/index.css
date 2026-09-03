@@ -2,34 +2,37 @@
 @import 'tailwindcss';
 
 /*
- * Sistema de diseño propio (no el slate/indigo por defecto de Tailwind/shadcn).
- * Inspirado en el vocabulario visual de un gimnasio real: piso de caucho color
- * carbón, tiza, placas de acero y el marcador/reloj de una sala de pesas —
- * en vez del "SaaS oscuro genérico" (negro puro + un solo acento ácido).
- * Ver la nota de diseño en App.tsx para el resto de la justificación.
+ * Sistema de diseño propio (no el slate/indigo por defecto de Tailwind/shadcn,
+ * y tampoco el "negro + un solo acento ácido" que es el default oscuro genérico
+ * de cualquier IA). Paleta clara ("gimnasio a la luz del día"): piso claro con
+ * un tinte frío, tarjetas blancas, tiza oscura para el texto y el naranja de una
+ * placa/cinta de advertencia como acento — con tipografía de afiche (Anton) para
+ * títulos y mono (IBM Plex Mono) para cifras, como el marcador de una sala de
+ * pesas. Ver la nota de diseño en App.tsx para el resto de la justificación.
  */
 @theme {
-  --color-ink: #16140f;
-  --color-surface: #201d17;
-  --color-surface-raised: #2a261e;
-  --color-line: #3a3427;
+  --color-ink: #f1f3ee;
+  --color-surface: #ffffff;
+  --color-surface-raised: #e8ebe2;
+  --color-line: #d8dbd0;
 
   --color-accent: #ff4d1f;
-  --color-accent-strong: #ff6a3d;
-  --color-accent-soft: #472417;
+  --color-accent-strong: #e6410f;
+  --color-accent-soft: #ffe3d6;
+  --color-on-accent: #201d17;
 
-  --color-chalk: #f4efe4;
-  --color-chalk-muted: #a89c88;
-  --color-chalk-faint: #6f6555;
+  --color-chalk: #211d17;
+  --color-chalk-muted: #6f6656;
+  --color-chalk-faint: #a89c88;
 
-  --color-success: #93d54a;
-  --color-success-soft: #263218;
-  --color-warning: #f2b705;
-  --color-warning-soft: #362b0c;
-  --color-danger: #ef5350;
-  --color-danger-soft: #3a1c1b;
-  --color-info: #6fa8d8;
-  --color-info-soft: #1d2a34;
+  --color-success: #2f8f45;
+  --color-success-soft: #e1f2e2;
+  --color-warning: #a3690a;
+  --color-warning-soft: #faedcf;
+  --color-danger: #c93a34;
+  --color-danger-soft: #fbe3e1;
+  --color-info: #2f6fa8;
+  --color-info-soft: #e1edf7;
 
   --font-display: 'Anton', 'Arial Narrow', sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

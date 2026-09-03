@@ -5,11 +5,12 @@ export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'des
 export type ButtonSize = 'sm' | 'md' | 'icon';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-ink hover:bg-accent-strong shadow-[0_0_0_1px_rgba(255,77,31,0.35)]',
+  primary:
+    'bg-accent text-on-accent hover:bg-accent-strong shadow-[0_0_0_1px_rgba(255,77,31,0.35)]',
   secondary: 'bg-surface-raised text-chalk border border-line hover:border-accent',
   outline: 'border border-line text-chalk hover:bg-surface-raised',
   ghost: 'text-chalk-muted hover:bg-surface-raised hover:text-chalk',
-  destructive: 'bg-danger text-ink hover:brightness-110',
+  destructive: 'bg-danger text-on-accent hover:brightness-110',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
