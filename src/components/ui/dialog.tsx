@@ -25,23 +25,23 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-ink/70" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white shadow-xl',
+          'relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-line bg-surface shadow-2xl',
           className,
         )}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between border-b border-line p-4">
+          <h2 className="font-display text-base uppercase tracking-wide text-chalk">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-md p-1 text-chalk-muted hover:bg-surface-raised hover:text-chalk"
           >
             <X className="h-4 w-4" />
           </button>

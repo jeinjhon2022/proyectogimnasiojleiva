@@ -31,9 +31,11 @@ createRoot(rootElement).render(
     {clerkPublishableKey ? (
       <Sentry.ErrorBoundary
         fallback={
-          <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-50 p-6 text-center text-slate-900">
-            <h1 className="text-xl font-semibold text-red-600">Ocurrió un error inesperado</h1>
-            <p className="text-sm text-slate-600">
+          <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-ink p-6 text-center text-chalk">
+            <h1 className="font-display text-xl uppercase tracking-wide text-danger">
+              Ocurrió un error inesperado
+            </h1>
+            <p className="text-sm text-chalk-muted">
               Intenta recargar la página. Ya quedó registrado.
             </p>
           </main>
@@ -44,9 +46,11 @@ createRoot(rootElement).render(
         </ClerkProvider>
       </Sentry.ErrorBoundary>
     ) : (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-50 p-6 text-center text-slate-900">
-        <h1 className="text-xl font-semibold text-red-600">Falta configurar Clerk</h1>
-        <p className="max-w-md text-sm text-slate-600">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-2 bg-ink p-6 text-center text-chalk">
+        <h1 className="font-display text-xl uppercase tracking-wide text-danger">
+          Falta configurar Clerk
+        </h1>
+        <p className="max-w-md text-sm text-chalk-muted">
           Define <code>VITE_CLERK_PUBLISHABLE_KEY</code> en un archivo <code>.env</code> local (ver{' '}
           <code>.env.example</code>) y vuelve a iniciar <code>npm run dev</code>.
         </p>

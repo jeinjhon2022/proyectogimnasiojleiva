@@ -78,7 +78,7 @@ export default function RoutinesPanel({ getToken }: RoutinesPanelProps) {
         </CardHeader>
         <CardContent>
           {loadError && (
-            <p role="alert" className="mb-3 text-sm text-red-600">
+            <p role="alert" className="mb-3 text-sm text-danger">
               {loadError}
             </p>
           )}
@@ -130,7 +130,7 @@ function ExerciseCatalog({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Todavía no hay ejercicios.</p>
+          <p className="text-sm text-chalk-muted">Todavía no hay ejercicios.</p>
         )}
         <form onSubmit={(event) => void handleSubmit(event)} className="flex gap-2">
           <Input
@@ -145,7 +145,7 @@ function ExerciseCatalog({
           </Button>
         </form>
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         )}
@@ -235,7 +235,7 @@ function CreateRoutineForm({
             {rows.map((row, index) => (
               <div
                 key={index}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-2"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2"
               >
                 <Select
                   value={row.exerciseId}
@@ -297,7 +297,7 @@ function CreateRoutineForm({
           </Button>
 
           {error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
@@ -324,15 +324,15 @@ function RoutinesList({
   const [assigningId, setAssigningId] = useState<string | null>(null);
 
   if (routines.length === 0) {
-    return <p className="text-sm text-slate-500">Todavía no hay rutinas.</p>;
+    return <p className="text-sm text-chalk-muted">Todavía no hay rutinas.</p>;
   }
 
   return (
     <ul className="flex flex-col gap-2">
       {routines.map((routine) => (
-        <li key={routine.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+        <li key={routine.id} className="rounded-lg border border-line p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2 font-medium text-slate-900">
+            <span className="flex items-center gap-2 font-medium text-chalk">
               {routine.name}
               <Badge tone={STATUS_TONE[routine.status]}>{STATUS_LABELS[routine.status]}</Badge>
             </span>
@@ -399,10 +399,10 @@ function AssignRoutineForm({
   }
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
+    <div className="mt-3 border-t border-line pt-3">
       <form onSubmit={(event) => void handleSearch(event)} className="mb-2 flex gap-2">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-chalk-faint" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -417,11 +417,11 @@ function AssignRoutineForm({
       </form>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}
-      {confirmation && <p className="text-sm text-emerald-700">{confirmation}</p>}
+      {confirmation && <p className="text-sm text-success">{confirmation}</p>}
 
       {results.length > 0 && (
         <ul className="flex flex-col gap-1.5">

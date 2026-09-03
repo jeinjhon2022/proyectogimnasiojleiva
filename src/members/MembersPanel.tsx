@@ -44,8 +44,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Dialog } from '../components/ui/dialog';
 import { Input, Label, Select } from '../components/ui/input';
 import { Badge, type BadgeTone } from '../components/ui/badge';
+import { cn } from '../lib/utils';
 
 const PAGE_SIZE = 10;
+
+// Cifra del marcador: null mientras no hay dato (todavía no cargó), en vez de
+// mostrar un cero engañoso.
+function ScoreboardStat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number | null;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex flex-col gap-0.5 px-4 py-3', className)}>
+      <span className="font-mono text-2xl font-semibold tabular-nums text-chalk">
+        {value === null ? '—' : value}
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-wider text-chalk-muted">
+        {label}
+      </span>
+    </div>
+  );
+}
 
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Efectivo',
@@ -141,11 +165,7 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
       <CardHeader className="flex-row items-center justify-between gap-3">
         <div>
           <CardTitle>Socios</CardTitle>
-          <CardDescription>
-            {attendanceSummary
-              ? `Asistencias hoy: ${attendanceSummary.today} · últimos 30 días: ${attendanceSummary.last30Days}`
-              : 'Gestión de socios del gimnasio'}
-          </CardDescription>
+          <CardDescription>Gestión de socios del gimnasio</CardDescription>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4" />
@@ -153,10 +173,22 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
         </Button>
       </CardHeader>
 
+      {/* Marcador estilo tablero de sala de pesas: cifras reales del día en mono,
+          en vez del párrafo de resumen genérico. */}
+      <div className="grid grid-cols-2 divide-x divide-line border-b border-line sm:grid-cols-3">
+        <ScoreboardStat label="Socios" value={state.kind === 'success' ? state.data.total : null} />
+        <ScoreboardStat label="Asistencias hoy" value={attendanceSummary?.today ?? null} />
+        <ScoreboardStat
+          label="Últimos 30 días"
+          value={attendanceSummary?.last30Days ?? null}
+          className="hidden sm:block"
+        />
+      </div>
+
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-chalk-faint" />
             <Input
               type="text"
               value={searchInput}
@@ -172,28 +204,28 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
         </form>
 
         {state.kind === 'loading' && (
-          <p role="status" className="flex items-center gap-2 py-6 text-sm text-slate-500">
+          <p role="status" className="flex items-center gap-2 py-6 text-sm text-chalk-muted">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando socios…
           </p>
         )}
 
         {state.kind === 'error' && (
-          <p role="alert" className="py-6 text-sm text-red-600">
+          <p role="alert" className="py-6 text-sm text-danger">
             {state.message}
           </p>
         )}
 
         {state.kind === 'success' && state.data.items.length === 0 && (
-          <p className="py-6 text-center text-sm text-slate-500">
+          <p className="py-6 text-center text-sm text-chalk-muted">
             No hay socios que coincidan con la búsqueda.
           </p>
         )}
 
         {state.kind === 'success' && state.data.items.length > 0 && (
           <>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <div className="overflow-x-auto rounded-lg border border-line">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-surface-raised font-mono text-[10px] uppercase tracking-wider text-chalk-muted">
                   <tr>
                     <th className="px-4 py-2.5 font-medium">Código</th>
                     <th className="px-4 py-2.5 font-medium">Nombre</th>
@@ -203,7 +235,7 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
                     <th className="px-4 py-2.5 font-medium">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-line">
                   {state.data.items.map((member) => (
                     <MemberRow
                       key={member.id}
@@ -218,7 +250,7 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
               </table>
             </div>
 
-            <div className="flex items-center justify-between text-sm text-slate-500">
+            <div className="flex items-center justify-between text-sm text-chalk-muted">
               <span>
                 Página {state.data.page} de{' '}
                 {Math.max(1, Math.ceil(state.data.total / state.data.pageSize))} ({state.data.total}{' '}
@@ -326,7 +358,7 @@ function CreateMemberForm({ getToken, onCreated }: CreateMemberFormProps) {
       </div>
 
       {submitState.kind === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {submitState.message}
         </p>
       )}
@@ -382,13 +414,13 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
 
   return (
     <>
-      <tr className="hover:bg-slate-50">
-        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-slate-500">
+      <tr className="hover:bg-surface-raised">
+        <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-chalk-muted">
           {member.memberCode}
         </td>
-        <td className="px-4 py-2.5 font-medium text-slate-900">{member.fullName}</td>
-        <td className="px-4 py-2.5 text-slate-600">{member.email ?? '—'}</td>
-        <td className="px-4 py-2.5 text-slate-600">{member.phone ?? '—'}</td>
+        <td className="px-4 py-2.5 font-medium text-chalk">{member.fullName}</td>
+        <td className="px-4 py-2.5 text-chalk-muted">{member.email ?? '—'}</td>
+        <td className="px-4 py-2.5 text-chalk-muted">{member.phone ?? '—'}</td>
         <td className="px-4 py-2.5">
           <Badge tone={member.isActive ? 'success' : 'default'}>
             {member.isActive ? 'Activo' : 'Inactivo'}
@@ -443,14 +475,14 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
                 aria-label="Desactivar"
                 disabled={busy}
                 onClick={() => void handleDeactivate()}
-                className="text-red-600 hover:bg-red-50"
+                className="text-danger hover:bg-danger-soft"
               >
                 <UserX className="h-4 w-4" />
               </Button>
             )}
           </div>
           {error && (
-            <p role="alert" className="mt-1 text-xs text-red-600">
+            <p role="alert" className="mt-1 text-xs text-danger">
               {error}
             </p>
           )}
@@ -458,9 +490,9 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
       </tr>
 
       {openSection && (
-        <tr className="bg-slate-50">
+        <tr className="bg-surface-raised">
           <td colSpan={6} className="p-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <div className="rounded-lg border border-line bg-ink p-4">
               {openSection === 'membership' && (
                 <MembershipSection memberId={member.id} plans={plans} getToken={getToken} />
               )}
@@ -554,7 +586,7 @@ function EditMemberForm({
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}
@@ -640,14 +672,14 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
 
   if (state.kind === 'loading') {
     return (
-      <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+      <p role="status" className="flex items-center gap-2 text-sm text-chalk-muted">
         <Loader2 className="h-4 w-4 animate-spin" /> Cargando membresía…
       </p>
     );
   }
   if (state.kind === 'error') {
     return (
-      <p role="alert" className="text-sm text-red-600">
+      <p role="alert" className="text-sm text-danger">
         {state.message}
       </p>
     );
@@ -669,11 +701,11 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
           </Badge>
         </div>
       ) : (
-        <p className="text-slate-500">Sin membresía asignada todavía.</p>
+        <p className="text-chalk-muted">Sin membresía asignada todavía.</p>
       )}
 
       {actionError && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {actionError}
         </p>
       )}
@@ -803,17 +835,17 @@ function PaymentsSection({
   return (
     <div className="flex flex-col gap-3 text-sm">
       {state.kind === 'loading' && (
-        <p role="status" className="flex items-center gap-2 text-slate-500">
+        <p role="status" className="flex items-center gap-2 text-chalk-muted">
           <Loader2 className="h-4 w-4 animate-spin" /> Cargando pagos…
         </p>
       )}
       {state.kind === 'error' && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {state.message}
         </p>
       )}
       {state.kind === 'success' && state.payments.length === 0 && (
-        <p className="text-slate-500">Sin pagos registrados todavía.</p>
+        <p className="text-chalk-muted">Sin pagos registrados todavía.</p>
       )}
 
       {state.kind === 'success' && state.payments.length > 0 && (
@@ -831,7 +863,7 @@ function PaymentsSection({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-auto p-0 text-red-600 underline hover:bg-transparent hover:text-red-700"
+                  className="h-auto p-0 text-danger underline hover:bg-transparent hover:text-danger"
                   disabled={busy}
                   onClick={() => void handleVoid(payment.id)}
                 >
@@ -844,7 +876,7 @@ function PaymentsSection({
       )}
 
       {actionError && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {actionError}
         </p>
       )}
@@ -949,17 +981,17 @@ function AttendanceSection({
   return (
     <div className="flex flex-col gap-3 text-sm">
       {state.kind === 'loading' && (
-        <p role="status" className="flex items-center gap-2 text-slate-500">
+        <p role="status" className="flex items-center gap-2 text-chalk-muted">
           <Loader2 className="h-4 w-4 animate-spin" /> Cargando asistencia…
         </p>
       )}
       {state.kind === 'error' && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {state.message}
         </p>
       )}
       {state.kind === 'success' && state.records.length === 0 && (
-        <p className="text-slate-500">Sin asistencias registradas todavía.</p>
+        <p className="text-chalk-muted">Sin asistencias registradas todavía.</p>
       )}
 
       {state.kind === 'success' && state.records.length > 0 && (
@@ -971,7 +1003,7 @@ function AttendanceSection({
       )}
 
       {actionError && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {actionError}
         </p>
       )}

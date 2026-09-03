@@ -5,11 +5,11 @@ export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'des
 export type ButtonSize = 'sm' | 'md' | 'icon';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-slate-900 text-white hover:bg-slate-700 shadow-sm',
-  secondary: 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm',
-  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-  ghost: 'text-slate-600 hover:bg-slate-100',
-  destructive: 'bg-red-600 text-white hover:bg-red-500 shadow-sm',
+  primary: 'bg-accent text-ink hover:bg-accent-strong shadow-[0_0_0_1px_rgba(255,77,31,0.35)]',
+  secondary: 'bg-surface-raised text-chalk border border-line hover:border-accent',
+  outline: 'border border-line text-chalk hover:bg-surface-raised',
+  ghost: 'text-chalk-muted hover:bg-surface-raised hover:text-chalk',
+  destructive: 'bg-danger text-ink hover:brightness-110',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -31,7 +31,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
+        'inline-flex items-center justify-center rounded-md font-semibold uppercase tracking-wide transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ink',
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className,

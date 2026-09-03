@@ -1,1 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
+
+/*
+ * Sistema de diseño propio (no el slate/indigo por defecto de Tailwind/shadcn).
+ * Inspirado en el vocabulario visual de un gimnasio real: piso de caucho color
+ * carbón, tiza, placas de acero y el marcador/reloj de una sala de pesas —
+ * en vez del "SaaS oscuro genérico" (negro puro + un solo acento ácido).
+ * Ver la nota de diseño en App.tsx para el resto de la justificación.
+ */
+@theme {
+  --color-ink: #16140f;
+  --color-surface: #201d17;
+  --color-surface-raised: #2a261e;
+  --color-line: #3a3427;
+
+  --color-accent: #ff4d1f;
+  --color-accent-strong: #ff6a3d;
+  --color-accent-soft: #472417;
+
+  --color-chalk: #f4efe4;
+  --color-chalk-muted: #a89c88;
+  --color-chalk-faint: #6f6555;
+
+  --color-success: #93d54a;
+  --color-success-soft: #263218;
+  --color-warning: #f2b705;
+  --color-warning-soft: #362b0c;
+  --color-danger: #ef5350;
+  --color-danger-soft: #3a1c1b;
+  --color-info: #6fa8d8;
+  --color-info-soft: #1d2a34;
+
+  --font-display: 'Anton', 'Arial Narrow', sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+}

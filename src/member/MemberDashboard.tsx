@@ -80,22 +80,22 @@ function MyMembershipSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <Card>
+    <Card id="mi-membresia">
       <CardHeader className="flex-row items-center gap-2">
-        <IdCard className="h-5 w-5 text-slate-400" />
+        <IdCard className="h-5 w-5 text-accent" />
         <CardTitle>Mi membresía</CardTitle>
       </CardHeader>
       <CardContent>
         {state.kind === 'loading' && (
-          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+          <p role="status" className="flex items-center gap-2 text-sm text-chalk-muted">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
           </p>
         )}
         {state.kind === 'none' && (
-          <p className="text-sm text-slate-500">Todavía no tienes una membresía registrada.</p>
+          <p className="text-sm text-chalk-muted">Todavía no tienes una membresía registrada.</p>
         )}
         {state.kind === 'error' && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.message}
           </p>
         )}
@@ -107,7 +107,7 @@ function MyMembershipSection({ getToken }: { getToken: TokenGetter }) {
             <Badge tone={STATUS_TONE[state.data.status]} className="w-fit">
               {STATUS_LABELS[state.data.status]}
             </Badge>
-            <p className="text-slate-500">
+            <p className="text-chalk-muted">
               Vigencia: {state.data.startDate} a {state.data.endDate}
             </p>
           </div>
@@ -149,27 +149,27 @@ function MyAttendanceSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <Card>
+    <Card id="mi-asistencia">
       <CardHeader className="flex-row items-center gap-2">
-        <CalendarCheck className="h-5 w-5 text-slate-400" />
+        <CalendarCheck className="h-5 w-5 text-accent" />
         <CardTitle>Mi asistencia</CardTitle>
       </CardHeader>
       <CardContent>
         {state.kind === 'loading' && (
-          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+          <p role="status" className="flex items-center gap-2 text-sm text-chalk-muted">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
           </p>
         )}
         {state.kind === 'error' && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.message}
           </p>
         )}
         {state.kind === 'success' && state.records.length === 0 && (
-          <p className="text-sm text-slate-500">Sin visitas registradas todavía.</p>
+          <p className="text-sm text-chalk-muted">Sin visitas registradas todavía.</p>
         )}
         {state.kind === 'success' && state.records.length > 0 && (
-          <ul className="flex flex-col gap-1.5 text-sm text-slate-600">
+          <ul className="flex flex-col gap-1.5 text-sm text-chalk-muted">
             {state.records.map((record) => (
               <li key={record.id}>{new Date(record.checkedInAt).toLocaleString('es')}</li>
             ))}
@@ -212,40 +212,40 @@ function MyRoutineSection({ getToken }: { getToken: TokenGetter }) {
   }, [getToken]);
 
   return (
-    <Card>
+    <Card id="mi-rutina">
       <CardHeader className="flex-row items-center gap-2">
-        <ClipboardList className="h-5 w-5 text-slate-400" />
+        <ClipboardList className="h-5 w-5 text-accent" />
         <CardTitle>Mi rutina</CardTitle>
       </CardHeader>
       <CardContent>
         {state.kind === 'loading' && (
-          <p role="status" className="flex items-center gap-2 text-sm text-slate-500">
+          <p role="status" className="flex items-center gap-2 text-sm text-chalk-muted">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
           </p>
         )}
         {state.kind === 'none' && (
-          <p className="text-sm text-slate-500">Todavía no tienes una rutina asignada.</p>
+          <p className="text-sm text-chalk-muted">Todavía no tienes una rutina asignada.</p>
         )}
         {state.kind === 'error' && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {state.message}
           </p>
         )}
         {state.kind === 'success' && (
           <div>
-            <p className="mb-2 text-sm text-slate-500">
+            <p className="mb-2 text-sm text-chalk-muted">
               {state.data.routine.name} — asignada el {state.data.assignedAt.slice(0, 10)}
             </p>
             <ol className="flex flex-col gap-2">
               {state.data.routine.exercises.map((exercise) => (
-                <li key={exercise.id} className="rounded-lg border border-slate-200 p-2.5 text-sm">
-                  <p className="font-medium text-slate-900">{exercise.exerciseName}</p>
-                  <p className="text-slate-500">
+                <li key={exercise.id} className="rounded-lg border border-line p-2.5 text-sm">
+                  <p className="font-medium text-chalk">{exercise.exerciseName}</p>
+                  <p className="text-chalk-muted">
                     {exercise.sets ? `${exercise.sets} series` : ''}
                     {exercise.reps ? ` × ${exercise.reps} reps` : ''}
                     {exercise.restSeconds ? ` · ${exercise.restSeconds}s descanso` : ''}
                   </p>
-                  {exercise.notes && <p className="text-slate-400">{exercise.notes}</p>}
+                  {exercise.notes && <p className="text-chalk-faint">{exercise.notes}</p>}
                 </li>
               ))}
             </ol>
