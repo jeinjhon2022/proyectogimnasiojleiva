@@ -20,3 +20,6 @@ coverage/
 
 # Respaldos locales de D1 (nunca deben subirse al repositorio)
 db/backups/
+
+# Grabaciones de pantalla sueltas en la raíz (referencias de diseño, no código)
+*.mov
