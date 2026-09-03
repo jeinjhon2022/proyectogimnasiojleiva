@@ -63,3 +63,32 @@ Estos nunca se borran físicamente (`payments`, `memberships` — CLAUDE.md secc
 - `npm run db:seed:local` sin errores (valida que las migraciones nuevas no rompen los `INSERT` del seed).
 - Consultas de sanity check con `wrangler d1 execute ... --local --command "SELECT ..."` sobre las tablas afectadas.
 - Cuando exista código de aplicación que use la tabla afectada: sus pruebas correspondientes (Vitest / Playwright, según PLAN.md sección 12).
+
+## 5. Respaldo periódico durante el piloto (no solo antes de migrar)
+
+Lo de arriba cubre respaldar antes de un cambio de esquema. Durante el piloto, con
+socios reales usando la app día a día, hace falta además un respaldo **rutinario**
+—independiente de si hay una migración o no— por si algo se corrompe por error humano
+o un bug no relacionado con el esquema.
+
+**Para el tamaño de este piloto (grupo controlado, ~100 socios), un respaldo manual
+semanal es suficiente** — no se justifica construir todavía una tubería automatizada a
+R2 (eso solo tiene sentido si el volumen de datos o el número de usuarios crece mucho
+más; CLAUDE.md sección 3, "no añadir complejidad antes de necesitarla").
+
+Rutina sugerida (quien administre el piloto, una vez por semana):
+
+```bash
+npx wrangler d1 export app-gym-oferta-db --remote --output=respaldo_$(date +%Y%m%d).sql
+```
+
+Guardar ese archivo fuera del repositorio, en un lugar con copia de seguridad propia
+(ej. una carpeta de Google Drive/iCloud personal, **no** un repositorio público) —
+contiene datos personales reales de socios, así que debe tratarse con el mismo
+cuidado que cualquier otro documento sensible del gimnasio. Conservar al menos las
+últimas 4 semanas; los más viejos se pueden borrar.
+
+Si en algún momento el piloto crece lo suficiente para justificar automatizar esto,
+la opción natural es un Cron Trigger adicional que arme un `SELECT *` de cada tabla y
+lo guarde en R2 — en ese momento sí tendría un caso de uso real (ver README.md,
+sección sobre Turnstile/R2 diferidos).
