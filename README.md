@@ -2,7 +2,7 @@
 
 PWA para administrar un gimnasio: socios, membresías, pagos manuales, asistencia, rutinas y panel administrativo.
 
-Estado actual: **Fases 1-10 completas** (todos los módulos del MVP, Sentry, D1 real creada, CI en GitHub Actions; falta el primer despliegue). Ver [`PLAN.md`](./PLAN.md) para el plan completo por fases, [`CLAUDE.md`](./CLAUDE.md) para las reglas del proyecto, y [`PILOT.md`](./PILOT.md) para lo que falta antes de usar la app con socios reales.
+Estado actual: **Fases 1-10 completas y desplegado** en https://app-gym-oferta.john-jairo-leiva.workers.dev. Ver [`PLAN.md`](./PLAN.md) para el plan completo por fases, [`CLAUDE.md`](./CLAUDE.md) para las reglas del proyecto, y [`PILOT.md`](./PILOT.md) para lo que falta antes de usar la app con socios reales (dominio propio verificado en Resend, revisión legal de la política de privacidad, etc.).
 
 ## Stack
 

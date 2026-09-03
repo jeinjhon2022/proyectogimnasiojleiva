@@ -15,11 +15,10 @@ abrirla a todos los socios reales del gimnasio (CLAUDE.md sección 18).
 
 No usar datos reales de personas hasta marcar todo esto:
 
-- [ ] El Worker está desplegado (`wrangler deploy`) — **no se ha hecho todavía**, sigue
-      pendiente de instrucción explícita (CLAUDE.md sección 14).
-- [ ] Los secretos de producción están configurados con `wrangler secret put`
-      (`CLERK_SECRET_KEY`, `RESEND_API_KEY`, `SENTRY_DSN`) — **no se ha hecho
-      todavía**, requiere el despliegue primero.
+- [x] El Worker está desplegado: **https://app-gym-oferta.john-jairo-leiva.workers.dev**
+      (dominio `*.workers.dev` gratuito de Cloudflare; un dominio propio es opcional).
+- [x] Los secretos de producción están configurados con `wrangler secret put`
+      (`CLERK_SECRET_KEY`, `RESEND_API_KEY`, `SENTRY_DSN`).
 - [ ] Clerk está en modo de producción (no solo instancia de desarrollo) si se va a
       usar con socios reales — revisar en el dashboard de Clerk.
 - [ ] Resend tiene un dominio propio verificado (`resend.com/domains`) — mientras use
