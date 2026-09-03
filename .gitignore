@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+.wrangler/
+
+# Variables de entorno (nunca subir secretos reales)
+.env
+.env.*.local
+.env.local
+.dev.vars
+
+# Editor / SO
+.DS_Store
+*.local
+
+# Cobertura de pruebas
+coverage/
+
+# Respaldos locales de D1 (nunca deben subirse al repositorio)
+db/backups/

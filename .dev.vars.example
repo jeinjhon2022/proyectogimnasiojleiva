@@ -1,0 +1,8 @@
+# Secretos del Worker para desarrollo local (leídos por `npm run dev` / wrangler).
+# Copiar a `.dev.vars` (nunca a git) y completar con los valores reales.
+# Para producción/preview: `wrangler secret put CLERK_SECRET_KEY` (nunca en un archivo).
+
+CLERK_SECRET_KEY=
+
+# Fase 5 — Resend (aviso de vencimiento de membresía), plan Free
+RESEND_API_KEY=

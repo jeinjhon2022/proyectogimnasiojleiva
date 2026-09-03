@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Nombre del Worker en Cloudflare. Cambiarlo aquí renombra el recurso en el dashboard.
+  "name": "app-gym-oferta",
+  "compatibility_date": "2026-08-31",
+  "main": "./worker/index.ts",
+  // Un solo Worker sirve el frontend (assets estáticos) y la API.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    // Cualquier ruta que no sea un archivo estático real sirve index.html
+    // (necesario para el enrutamiento del lado del cliente en fases posteriores).
+    "not_found_handling": "single-page-application",
+    // /api/* siempre llega al Worker, sin importar si "parece" un archivo estático.
+    "run_worker_first": ["/api/*"],
+  },
+  // Aviso diario de membresías próximas a vencer (worker/jobs/expiry-notices.ts).
+  // 12:00 UTC — plan Free de Workers permite Cron Triggers sin costo.
+  "triggers": {
+    "crons": ["0 12 * * *"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "app-gym-oferta-db",
+      // Base real creada en Cloudflare (Fase 9). Local (`--local`) sigue usando su
+      // propio SQLite en .wrangler/state, sin tocar esta base para nada.
+      "database_id": "2226503a-cf74-4fc2-8a5b-87417d6d1daa",
+    },
+  ],
+}
