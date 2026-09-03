@@ -1,4 +1,5 @@
 // Punto de entrada del Worker (API). Enruta a los módulos en worker/routes/*.
+import * as Sentry from '@sentry/cloudflare';
 import type { Env } from './env';
 import { errorResponse, jsonResponse } from './http';
 import { handleGetMe } from './routes/me';
@@ -215,7 +216,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   return errorResponse(404, 'NOT_FOUND', 'Recurso no encontrado');
 }
 
-export default {
+const handler = {
   fetch(request, env) {
     return handleApiRequest(request, env);
   },
@@ -225,3 +226,18 @@ export default {
     ctx.waitUntil(runExpiredNoticeJob(env));
   },
 } satisfies ExportedHandler<Env>;
+
+// withSentry instrumenta fetch y scheduled automáticamente (captura excepciones no
+// controladas). Con SENTRY_DSN vacío (caso local, .dev.vars no lo define) el SDK queda
+// desactivado y no envía nada — así los errores de desarrollo nunca llegan a Sentry.
+export default Sentry.withSentry(
+  (env: Env) => ({
+    dsn: env.SENTRY_DSN,
+    // TODO(Fase 10): distinguir development/preview/production cuando existan
+    // entornos reales de despliegue (CLAUDE.md sección 12).
+    environment: 'development',
+    tracesSampleRate: 0, // solo captura de errores por ahora, sin trazas de performance
+    sendDefaultPii: false, // nunca IP/datos de usuario por defecto (CLAUDE.md sección 10)
+  }),
+  handler,
+);

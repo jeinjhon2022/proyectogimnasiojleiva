@@ -5,4 +5,7 @@ export interface Env {
   // Secretos (nunca con prefijo VITE_). Local: .dev.vars. Remoto: `wrangler secret put`.
   CLERK_SECRET_KEY: string;
   RESEND_API_KEY: string;
+  // No es secreta (los DSN de Sentry están pensados para ser públicos), pero se maneja
+  // igual que las demás para mantener un solo patrón. Vacía en local = Sentry no envía nada.
+  SENTRY_DSN: string;
 }

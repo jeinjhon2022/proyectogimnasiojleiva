@@ -125,6 +125,16 @@ CRUD de socios (`/api/members`), visible en la app solo para `admin`/`receptioni
 
 **Pendiente de que confirmes**: la calidad de los 5 correos (contenido, tono) — son texto plano en HTML simple, sin diseño de marca.
 
+## Sentry (Fase 9, parte 2)
+
+Captura de errores en frontend (`@sentry/react`, con `ErrorBoundary` alrededor de la app) y Worker (`@sentry/cloudflare`, envuelve `fetch` y `scheduled` — captura también fallos del cron de avisos de membresía).
+
+- **Nunca activo en desarrollo local a propósito**: el frontend solo inicializa Sentry en build de producción (`import.meta.env.PROD`); el Worker solo envía si `SENTRY_DSN` está configurado (`.dev.vars` lo deja vacío deliberadamente). Así los errores de `npm run dev` nunca ensucian el dashboard de Sentry.
+- `sendDefaultPii: false` y `tracesSampleRate: 0` en ambos — solo errores, sin IP/datos de usuario ni trazas de performance por ahora (CLAUDE.md sección 10 y 12).
+- El DSN **no es secreto** (está diseñado para ir en el bundle del navegador), pero se maneja con el mismo patrón que los demás por consistencia.
+- **Pendiente para cuando se despliegue de verdad** (Fase 10): distinguir `environment` (`development`/`preview`/`production`) — por ahora está fijo en el código porque no existen todavía despliegues reales que distinguir.
+- **No verificado en vivo**: como nada está desplegado, no hay forma de confirmar que un error real llegue al dashboard de Sentry hasta el primer deploy.
+
 ## Endpoint de salud
 
 `GET /api/health` responde `{ "status": "ok", "timestamp": "<ISO 8601 UTC>" }`. Sirve para confirmar que el frontend y el Worker están correctamente conectados.

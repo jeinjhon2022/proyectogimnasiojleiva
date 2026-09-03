@@ -8,6 +8,7 @@ const fakeEnv: Env = {
   DB: createFakeUsersD1([]),
   CLERK_SECRET_KEY: 'test-secret',
   RESEND_API_KEY: 'test-key',
+  SENTRY_DSN: '',
 };
 
 describe('GET /api/health', () => {

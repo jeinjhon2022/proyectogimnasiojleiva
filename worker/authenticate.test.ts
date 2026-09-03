@@ -37,6 +37,7 @@ function makeEnv(users: FakeUserRow[] = [activeAdmin, inactiveMember, unclaimedM
     DB: createFakeUsersD1(users),
     CLERK_SECRET_KEY: 'test-secret',
     RESEND_API_KEY: 'test-key',
+    SENTRY_DSN: '',
   };
 }
 

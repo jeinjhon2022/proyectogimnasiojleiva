@@ -6,3 +6,8 @@ CLERK_SECRET_KEY=
 
 # Fase 5 — Resend (aviso de vencimiento de membresía), plan Free
 RESEND_API_KEY=
+
+# Fase 9 — Sentry (monitoreo de errores del Worker), plan Free.
+# No es secreto (los DSN de Sentry están pensados para ser públicos), pero se maneja
+# igual que las demás. Dejar vacío en local: así los errores de desarrollo no se envían.
+SENTRY_DSN=

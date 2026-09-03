@@ -30,6 +30,7 @@ function makeEnv(): Env {
     DB: createFakeUsersD1([activeAdmin]),
     CLERK_SECRET_KEY: 'test-secret',
     RESEND_API_KEY: 'test-key',
+    SENTRY_DSN: '',
   };
 }
 
