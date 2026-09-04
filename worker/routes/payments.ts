@@ -16,6 +16,7 @@ import {
   voidPayment,
 } from '../payments-repo';
 import { getMemberById } from '../members-repo';
+import { getOpenSession } from '../cash-repo';
 
 const STAFF_ROLES = ['admin', 'receptionist'] as const;
 
@@ -119,8 +120,17 @@ export async function handleCreatePayment(request: Request, env: Env): Promise<R
   const member = await getMemberById(env.DB, parsed.data.memberId);
   if (!member) return errorResponse(404, 'MEMBER_NOT_FOUND', 'No se encontró el socio indicado');
 
+  // Se ata a la caja abierta si existe una — nunca la decide el cliente, y un pago
+  // jamás se rechaza solo porque no haya caja abierta (CLAUDE.md sección 9: la caja es
+  // para el arqueo, no un candado sobre el cobro).
+  const openCash = await getOpenSession(env.DB);
+
   try {
-    const payment = await createPayment(env.DB, parsed.data, auth.user.id);
+    const payment = await createPayment(
+      env.DB,
+      { ...parsed.data, cashSessionId: openCash?.id },
+      auth.user.id,
+    );
     return jsonResponse(payment, { status: 201 });
   } catch {
     return errorResponse(409, 'CONFLICT', 'No se pudo registrar el pago');

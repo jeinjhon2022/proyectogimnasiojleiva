@@ -8,11 +8,13 @@ import {
   LayoutGrid,
   Loader2,
   Users,
+  Wallet,
 } from 'lucide-react';
 import MembersPanel from './members/MembersPanel';
 import RoutinesPanel from './routines/RoutinesPanel';
 import MemberDashboard from './member/MemberDashboard';
 import KioskCheckIn from './attendance/KioskCheckIn';
+import CashRegisterPanel from './cash/CashRegisterPanel';
 import OfflineBanner from './OfflineBanner';
 import { Badge } from './components/ui/badge';
 import type { Role } from './api';
@@ -51,12 +53,14 @@ function navItemsForRole(role: Role): NavItem[] {
       return [
         { id: 'checkin', label: 'Check-in', icon: Fingerprint },
         { id: 'socios', label: 'Socios', icon: Users },
+        { id: 'caja', label: 'Caja', icon: Wallet },
         { id: 'rutinas', label: 'Rutinas', icon: ClipboardList },
       ];
     case 'receptionist':
       return [
         { id: 'checkin', label: 'Check-in', icon: Fingerprint },
         { id: 'socios', label: 'Socios', icon: Users },
+        { id: 'caja', label: 'Caja', icon: Wallet },
       ];
     case 'trainer':
       return [{ id: 'rutinas', label: 'Rutinas', icon: ClipboardList }];
@@ -280,6 +284,12 @@ function AuthenticatedHome() {
       {(role === 'admin' || role === 'receptionist') && (
         <div id="socios">
           <MembersPanel getToken={getToken} role={role} />
+        </div>
+      )}
+
+      {(role === 'admin' || role === 'receptionist') && (
+        <div id="caja">
+          <CashRegisterPanel getToken={getToken} />
         </div>
       )}
 

@@ -448,3 +448,114 @@ export interface MyRoutineResponse {
 export function getMyRoutine(getToken: TokenGetter): Promise<MyRoutineResponse> {
   return apiFetch(getToken, '/api/me/routine');
 }
+
+// ---------- Caja diaria ----------
+
+export type CashSessionStatus = 'open' | 'closed';
+export type CashMovementType = 'manual_income' | 'manual_expense';
+export type CashMovementMethod = PaymentMethod;
+
+export interface CashSession {
+  id: string;
+  status: CashSessionStatus;
+  initialBalance: number;
+  openedBy: string;
+  openedAt: string;
+  closedBy: string | null;
+  closedAt: string | null;
+  countedCash: number | null;
+  notes: string | null;
+}
+
+export interface CashMovement {
+  id: string;
+  sessionId: string;
+  type: CashMovementType;
+  amount: number;
+  method: CashMovementMethod;
+  description: string;
+  createdAt: string;
+}
+
+export interface CashSessionPayment {
+  id: string;
+  memberId: string;
+  memberFullName: string;
+  amount: number;
+  method: CashMovementMethod;
+  paymentDate: string;
+}
+
+export interface CashSessionSummary {
+  session: CashSession;
+  paymentIncomeByMethod: Record<CashMovementMethod, number>;
+  totalPaymentIncome: number;
+  manualIncomeByMethod: Record<CashMovementMethod, number>;
+  totalManualIncome: number;
+  manualExpenseByMethod: Record<CashMovementMethod, number>;
+  totalManualExpense: number;
+  totalIncomes: number;
+  totalExpenses: number;
+  expectedCash: number;
+  movements: CashMovement[];
+  payments: CashSessionPayment[];
+}
+
+export function getCurrentCashSession(
+  getToken: TokenGetter,
+): Promise<{ session: null } | CashSessionSummary> {
+  return apiFetch(getToken, '/api/cash/current');
+}
+
+export function openCashSession(
+  getToken: TokenGetter,
+  initialBalance: number,
+): Promise<CashSession> {
+  return apiFetch<CashSession>(getToken, '/api/cash/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ initialBalance }),
+  });
+}
+
+export function closeCashSession(
+  getToken: TokenGetter,
+  sessionId: string,
+  input: { countedCash: number; notes?: string | undefined },
+): Promise<CashSessionSummary> {
+  return apiFetch<CashSessionSummary>(getToken, `/api/cash/sessions/${sessionId}/close`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listCashSessions(
+  getToken: TokenGetter,
+  params: { page?: number; pageSize?: number },
+): Promise<{ items: CashSession[]; total: number; page: number; pageSize: number }> {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 1));
+  search.set('pageSize', String(params.pageSize ?? 20));
+  return apiFetch(getToken, `/api/cash/sessions?${search.toString()}`);
+}
+
+export function getCashSession(
+  getToken: TokenGetter,
+  sessionId: string,
+): Promise<CashSessionSummary> {
+  return apiFetch(getToken, `/api/cash/sessions/${sessionId}`);
+}
+
+export function createCashMovement(
+  getToken: TokenGetter,
+  input: {
+    type: CashMovementType;
+    amount: number;
+    method: CashMovementMethod;
+    description: string;
+  },
+): Promise<CashMovement> {
+  return apiFetch<CashMovement>(getToken, '/api/cash/movements', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}

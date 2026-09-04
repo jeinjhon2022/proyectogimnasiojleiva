@@ -29,6 +29,11 @@ vi.mock('../members-repo', () => ({
   getMemberById: (...args: unknown[]) => getMemberByIdMock(...args),
 }));
 
+const getOpenSessionMock = vi.fn();
+vi.mock('../cash-repo', () => ({
+  getOpenSession: (...args: unknown[]) => getOpenSessionMock(...args),
+}));
+
 const {
   handleListPayments,
   handleGetPaymentsSummary,
@@ -87,6 +92,8 @@ beforeEach(() => {
   findPaymentByIdempotencyKeyMock.mockReset();
   getPaymentsSummaryMock.mockReset();
   getMemberByIdMock.mockReset();
+  getOpenSessionMock.mockReset();
+  getOpenSessionMock.mockResolvedValue(null); // por defecto: sin caja abierta
 });
 
 describe('GET /api/payments', () => {
@@ -179,6 +186,43 @@ describe('POST /api/payments', () => {
     );
 
     expect(response.status).toBe(201);
+  });
+
+  it('ata el pago a la caja abierta cuando hay una (para el arqueo de caja)', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    getMemberByIdMock.mockResolvedValue(sampleMember);
+    getOpenSessionMock.mockResolvedValue({ id: 'cash_1' });
+    createPaymentMock.mockResolvedValue(samplePayment);
+
+    await handleCreatePayment(
+      makeRequest({ memberId: 'member_1', amount: 40, method: 'cash' }),
+      fakeEnv,
+    );
+
+    expect(createPaymentMock).toHaveBeenCalledWith(
+      fakeEnv.DB,
+      expect.objectContaining({ cashSessionId: 'cash_1' }),
+      receptionist.id,
+    );
+  });
+
+  it('no bloquea el pago aunque no haya ninguna caja abierta', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    getMemberByIdMock.mockResolvedValue(sampleMember);
+    getOpenSessionMock.mockResolvedValue(null);
+    createPaymentMock.mockResolvedValue(samplePayment);
+
+    const response = await handleCreatePayment(
+      makeRequest({ memberId: 'member_1', amount: 40, method: 'cash' }),
+      fakeEnv,
+    );
+
+    expect(response.status).toBe(201);
+    expect(createPaymentMock).toHaveBeenCalledWith(
+      fakeEnv.DB,
+      expect.objectContaining({ cashSessionId: undefined }),
+      receptionist.id,
+    );
   });
 
   it('idempotencia: con una clave ya usada, devuelve el pago existente sin crear otro', async () => {

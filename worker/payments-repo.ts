@@ -146,6 +146,10 @@ export interface CreatePaymentInput {
   reference?: string | undefined;
   observation?: string | undefined;
   idempotencyKey?: string | undefined;
+  // La caja abierta al momento de cobrar, si había una (worker/routes/payments.ts la
+  // resuelve sola; nunca la decide el cliente). Un pago nunca se bloquea por no haber
+  // caja abierta — solo queda sin aparecer en ningún arqueo de caja.
+  cashSessionId?: string | undefined;
 }
 
 // Nunca se sobrescribe ni se borra un pago (CLAUDE.md sección 6.4): esta función solo
@@ -163,8 +167,8 @@ export async function createPayment(
     db
       .prepare(
         `INSERT INTO payments
-           (id, member_id, membership_id, amount, method, payment_date, reference, status, observation, idempotency_key, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)`,
+           (id, member_id, membership_id, amount, method, payment_date, reference, status, observation, idempotency_key, cash_session_id, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -176,6 +180,7 @@ export async function createPayment(
         input.reference ?? null,
         input.observation ?? null,
         input.idempotencyKey ?? null,
+        input.cashSessionId ?? null,
         actorUserId,
         now,
         now,

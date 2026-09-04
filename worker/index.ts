@@ -28,6 +28,14 @@ import {
   handleVoidPayment,
 } from './routes/payments';
 import {
+  handleCloseCashSession,
+  handleCreateCashMovement,
+  handleGetCashSession,
+  handleGetCurrentSession,
+  handleListCashSessions,
+  handleOpenCashSession,
+} from './routes/cash';
+import {
   handleCreateAttendance,
   handleGetAttendanceSummary,
   handleGetMyAttendance,
@@ -169,6 +177,42 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   if (url.pathname === '/api/payments') {
     if (request.method === 'GET') return handleListPayments(request, env);
     if (request.method === 'POST') return handleCreatePayment(request, env);
+    return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+  }
+
+  if (url.pathname === '/api/cash/current') {
+    if (request.method !== 'GET')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleGetCurrentSession(request, env);
+  }
+
+  if (url.pathname === '/api/cash/movements') {
+    if (request.method !== 'POST')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleCreateCashMovement(request, env);
+  }
+
+  const closeCashSessionMatch = url.pathname.match(/^\/api\/cash\/sessions\/([^/]+)\/close$/);
+  if (closeCashSessionMatch) {
+    const id = closeCashSessionMatch[1];
+    if (!id) return errorResponse(404, 'NOT_FOUND', 'Recurso no encontrado');
+    if (request.method !== 'POST')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleCloseCashSession(request, env, id);
+  }
+
+  const cashSessionDetailMatch = url.pathname.match(/^\/api\/cash\/sessions\/([^/]+)$/);
+  if (cashSessionDetailMatch) {
+    const id = cashSessionDetailMatch[1];
+    if (!id) return errorResponse(404, 'NOT_FOUND', 'Recurso no encontrado');
+    if (request.method !== 'GET')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleGetCashSession(request, env, id);
+  }
+
+  if (url.pathname === '/api/cash/sessions') {
+    if (request.method === 'GET') return handleListCashSessions(request, env);
+    if (request.method === 'POST') return handleOpenCashSession(request, env);
     return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
   }
 
