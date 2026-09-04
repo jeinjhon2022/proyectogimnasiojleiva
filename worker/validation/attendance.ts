@@ -1,9 +1,19 @@
 import { z } from 'zod';
+import { dateOnly } from './shared';
 
-const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD');
+// Backdatear un check-in olvidado es un caso real (staff registrando la asistencia de
+// ayer), pero sin límites un typo de año ("2062" en vez de "2026") queda guardado como
+// si nada. Una ventana amplia (1 año atrás, 1 día adelante) no molesta el uso normal.
+const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const isoDateTime = z
   .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), 'Fecha/hora inválida');
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'Fecha/hora inválida')
+  .refine((value) => {
+    const timestamp = Date.parse(value);
+    const now = Date.now();
+    return timestamp >= now - ONE_YEAR_MS && timestamp <= now + ONE_DAY_MS;
+  }, 'La fecha debe estar dentro del último año y no puede ser futura');
 
 export const createAttendanceSchema = z.object({
   memberId: z.string().trim().min(1, 'memberId es obligatorio'),

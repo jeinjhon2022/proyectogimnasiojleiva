@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { dateOnly, moneyPositive } from './shared';
 
-const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD');
 const isoDateTime = z
   .string()
   .refine((value) => !Number.isNaN(Date.parse(value)), 'Fecha/hora inválida');
@@ -8,7 +8,7 @@ const isoDateTime = z
 export const createPaymentSchema = z.object({
   memberId: z.string().trim().min(1, 'memberId es obligatorio'),
   membershipId: z.string().trim().min(1).optional(),
-  amount: z.coerce.number().positive('El importe debe ser mayor a 0'), // USD
+  amount: moneyPositive, // USD
   method: z.enum(['cash', 'transfer', 'card_in_person', 'other']),
   // Si no se envía, se usa el momento actual.
   paymentDate: isoDateTime.optional(),

@@ -40,6 +40,15 @@ describe('createMemberSchema', () => {
     const result = createMemberSchema.safeParse({ fullName: 'X', email: 'a@test.dev' });
     expect(result.success).toBe(true);
   });
+
+  it('rechaza un teléfono que no es un teléfono (alimenta el enlace de WhatsApp del check-in)', () => {
+    const result = createMemberSchema.safeParse({
+      fullName: 'X',
+      email: 'a@test.dev',
+      phone: 'no tengo teléfono',
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('updateMemberSchema', () => {

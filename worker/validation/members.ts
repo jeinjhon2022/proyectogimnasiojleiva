@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD');
+import { dateOnly, phone } from './shared';
 
 // Cédula/DNI: formato libre (varía por país), solo se acota longitud y caracteres
 // razonables (dígitos, letras, guiones y puntos — cédulas y pasaportes los usan).
@@ -14,7 +13,7 @@ const nationalId = z
 export const createMemberSchema = z.object({
   fullName: z.string().trim().min(1, 'El nombre es obligatorio').max(200),
   email: z.string().trim().toLowerCase().email('Correo inválido').max(320),
-  phone: z.string().trim().min(1).max(50).optional(),
+  phone: phone.optional(),
   birthDate: dateOnly.optional(),
   joinDate: dateOnly.optional(),
   notes: z.string().trim().max(2000).optional(),
@@ -28,7 +27,7 @@ export const updateMemberSchema = z
   .object({
     fullName: z.string().trim().min(1).max(200).optional(),
     email: z.string().trim().toLowerCase().email('Correo inválido').max(320).optional(),
-    phone: z.string().trim().min(1).max(50).nullable().optional(),
+    phone: phone.nullable().optional(),
     birthDate: dateOnly.nullable().optional(),
     notes: z.string().trim().max(2000).nullable().optional(),
     nationalId: nationalId.nullable().optional(),

@@ -1080,6 +1080,7 @@ function PaymentsSection({
         <Input
           type="number"
           min="0.01"
+          max="100000"
           step="0.01"
           value={amount}
           onChange={(event) => setAmount(event.target.value)}

@@ -35,6 +35,21 @@ describe('createRoutineSchema', () => {
       false,
     );
   });
+
+  it('rechaza series/repeticiones fuera de un rango real (probable error de tipeo)', () => {
+    expect(
+      createRoutineSchema.safeParse({ name: 'X', exercises: [{ exerciseId: 'ex1', sets: 51 }] })
+        .success,
+    ).toBe(false);
+    expect(
+      createRoutineSchema.safeParse({ name: 'X', exercises: [{ exerciseId: 'ex1', reps: 1001 }] })
+        .success,
+    ).toBe(false);
+    expect(
+      createRoutineSchema.safeParse({ name: 'X', exercises: [{ exerciseId: 'ex1', sets: 4 }] })
+        .success,
+    ).toBe(true);
+  });
 });
 
 describe('assignRoutineSchema', () => {

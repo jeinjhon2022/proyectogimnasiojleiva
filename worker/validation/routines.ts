@@ -8,13 +8,15 @@ export const createExerciseSchema = z.object({
 
 export type CreateExerciseBody = z.infer<typeof createExerciseSchema>;
 
+// Techos generosos que nunca deberían chocar con una rutina real, pero atrapan un
+// típico error de tipeo (un cero de más) antes de que llegue a la base de datos.
 const routineExerciseInputSchema = z.object({
   exerciseId: z.string().trim().min(1, 'exerciseId es obligatorio'),
-  sets: z.coerce.number().int().positive().optional(),
-  reps: z.coerce.number().int().positive().optional(),
-  durationSeconds: z.coerce.number().int().positive().optional(),
-  distanceMeters: z.coerce.number().positive().optional(),
-  restSeconds: z.coerce.number().int().min(0).optional(),
+  sets: z.coerce.number().int().positive().max(50).optional(),
+  reps: z.coerce.number().int().positive().max(1000).optional(),
+  durationSeconds: z.coerce.number().int().positive().max(36_000).optional(), // 10 horas
+  distanceMeters: z.coerce.number().positive().max(1_000_000).optional(), // 1000 km
+  restSeconds: z.coerce.number().int().min(0).max(3600).optional(), // 1 hora
   notes: z.string().trim().max(1000).optional(),
 });
 

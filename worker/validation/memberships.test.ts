@@ -30,6 +30,15 @@ describe('createMembershipPlanSchema', () => {
       createMembershipPlanSchema.safeParse({ name: 'X', durationDays: 30, price: -1 }).success,
     ).toBe(false);
   });
+
+  it('rechaza una duración o precio irreales (probable error de tipeo)', () => {
+    expect(
+      createMembershipPlanSchema.safeParse({ name: 'X', durationDays: 3651, price: 10 }).success,
+    ).toBe(false);
+    expect(
+      createMembershipPlanSchema.safeParse({ name: 'X', durationDays: 30, price: 100_001 }).success,
+    ).toBe(false);
+  });
 });
 
 describe('createMembershipSchema', () => {
