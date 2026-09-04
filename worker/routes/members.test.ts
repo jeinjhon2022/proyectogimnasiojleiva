@@ -26,6 +26,11 @@ vi.mock('../members-repo', () => ({
   deactivateMember: (...args: unknown[]) => deactivateMemberMock(...args),
 }));
 
+vi.mock('../gym-settings-repo', () => ({
+  getGymTimezone: vi.fn().mockResolvedValue('America/Bogota'),
+  todayInTimezone: vi.fn().mockReturnValue('2026-09-02'),
+}));
+
 const isMemberAssignedToTrainerMock = vi.fn();
 const sendEmailWithResendMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../resend', () => ({
@@ -91,6 +96,7 @@ const sampleMember: MemberDetail = {
   notes: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
+  nationalId: null,
 };
 
 beforeEach(() => {
@@ -122,11 +128,13 @@ describe('GET /api/members', () => {
           email: 'socio1@test.dev',
           phone: '555',
           isActive: true,
+          membershipStatus: 'active',
         },
       ],
       total: 1,
       page: 1,
       pageSize: 20,
+      statusCounts: { all: 1, active: 1, expiring: 0, expired: 0 },
     });
 
     const response = await handleListMembers(new Request('https://x.test/api/members'), fakeEnv);
@@ -147,7 +155,13 @@ describe('GET /api/members', () => {
 
   it('responde 200 para admin, parseando page/pageSize/q', async () => {
     authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
-    listMembersMock.mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 10 });
+    listMembersMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 2,
+      pageSize: 10,
+      statusCounts: { all: 0, active: 0, expiring: 0, expired: 0 },
+    });
 
     const response = await handleListMembers(
       new Request('https://x.test/api/members?page=2&pageSize=10&q=ana'),
@@ -155,7 +169,36 @@ describe('GET /api/members', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(listMembersMock).toHaveBeenCalledWith(fakeEnv.DB, { page: 2, pageSize: 10, q: 'ana' });
+    expect(listMembersMock).toHaveBeenCalledWith(
+      fakeEnv.DB,
+      { page: 2, pageSize: 10, q: 'ana', membershipStatus: 'all' },
+      '2026-09-02',
+    );
+  });
+
+  it('acepta el filtro membershipStatus y lo pasa al repositorio', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    listMembersMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      statusCounts: { all: 3, active: 1, expiring: 1, expired: 1 },
+    });
+
+    const response = await handleListMembers(
+      new Request('https://x.test/api/members?membershipStatus=expiring'),
+      fakeEnv,
+    );
+
+    expect(response.status).toBe(200);
+    expect(listMembersMock).toHaveBeenCalledWith(
+      fakeEnv.DB,
+      { page: 1, pageSize: 20, q: undefined, membershipStatus: 'expiring' },
+      '2026-09-02',
+    );
+    const body = (await response.json()) as { statusCounts: { expiring: number } };
+    expect(body.statusCounts.expiring).toBe(1);
   });
 
   it('responde 422 con parámetros inválidos (evita exportaciones sin límite)', async () => {

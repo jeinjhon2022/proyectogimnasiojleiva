@@ -33,7 +33,10 @@ import {
   type Membership,
   type MembershipPlan,
   type MembershipStatus,
+  type MemberListStatus,
   type MembersPage,
+  type MemberStatusCounts,
+  type MemberStatusFilter,
   type Payment,
   type PaymentMethod,
   type Role,
@@ -94,6 +97,81 @@ const MEMBERSHIP_STATUS_LABEL: Record<MembershipStatus, string> = {
   cancelled: 'Cancelada',
 };
 
+// Estado de membresía tal como aparece en la lista de socios (columna + pestañas de
+// filtro). Distinto del mapa de arriba: incluye 'none' (sin membresía) y 'expiring'
+// (activa mais próxima a vencer — mismo umbral que el aviso por correo).
+const MEMBER_LIST_STATUS_LABEL: Record<MemberListStatus, string> = {
+  none: 'Sin membresía',
+  pending: 'Pendiente',
+  active: 'Activa',
+  expiring: 'Por vencer',
+  expired: 'Vencida',
+  suspended: 'Suspendida',
+  cancelled: 'Cancelada',
+};
+
+const MEMBER_LIST_STATUS_TONE: Record<MemberListStatus, BadgeTone> = {
+  none: 'default',
+  pending: 'info',
+  active: 'success',
+  expiring: 'warning',
+  expired: 'danger',
+  suspended: 'warning',
+  cancelled: 'default',
+};
+
+const STATUS_TABS: Array<{ key: MemberStatusFilter; label: string }> = [
+  { key: 'all', label: 'Todos' },
+  { key: 'active', label: 'Activos' },
+  { key: 'expiring', label: 'Por vencer' },
+  { key: 'expired', label: 'Vencidos' },
+];
+
+// Pestañas de filtro con conteo real por estado (mismo espíritu que la referencia
+// "GymAdmin" que compartió el usuario). Sin librería de animación: la transición es
+// solo color/sombra + un ligero "press" táctil al hacer clic (active:scale-95).
+function MembershipStatusTabs({
+  value,
+  counts,
+  onChange,
+}: {
+  value: MemberStatusFilter;
+  counts: MemberStatusCounts | null;
+  onChange: (status: MemberStatusFilter) => void;
+}) {
+  return (
+    <div
+      className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+      role="tablist"
+      aria-label="Filtrar socios por estado de membresía"
+    >
+      {STATUS_TABS.map((tab) => {
+        const active = value === tab.key;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-pressed={active}
+            onClick={() => onChange(tab.key)}
+            className={cn(
+              'flex items-center justify-center gap-1.5 rounded-md border py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-200 active:scale-95',
+              active
+                ? 'border-accent bg-accent text-on-accent shadow-[0_0_16px_rgba(255,77,31,0.35)]'
+                : 'border-line bg-surface-raised text-chalk-muted hover:text-chalk',
+            )}
+          >
+            {tab.label}
+            <span className="font-mono text-[11px] tabular-nums">
+              {counts ? counts[tab.key] : '—'}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type ListState =
   { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'success'; data: MembersPage };
 
@@ -109,6 +187,7 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [statusFilter, setStatusFilter] = useState<MemberStatusFilter>('all');
   const [state, setState] = useState<ListState>({ kind: 'loading' });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -135,7 +214,12 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
     // No se resetea a "loading" aquí: mientras llega la respuesta se sigue mostrando
     // la última lista cargada (evita el parpadeo en cada cambio de página/búsqueda).
     // El estado inicial ya es "loading" (ver useState arriba).
-    listMembers(getToken, { page, pageSize: PAGE_SIZE, q: query || undefined })
+    listMembers(getToken, {
+      page,
+      pageSize: PAGE_SIZE,
+      q: query || undefined,
+      membershipStatus: statusFilter,
+    })
       .then((data) => {
         if (!cancelled) setState({ kind: 'success', data });
       })
@@ -152,12 +236,17 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [getToken, page, query, reloadToken]);
+  }, [getToken, page, query, statusFilter, reloadToken]);
 
   function handleSearchSubmit(event: FormEvent) {
     event.preventDefault();
     setPage(1);
     setQuery(searchInput.trim());
+  }
+
+  function handleStatusFilterChange(status: MemberStatusFilter) {
+    setPage(1);
+    setStatusFilter(status);
   }
 
   return (
@@ -176,7 +265,10 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
       {/* Marcador estilo tablero de sala de pesas: cifras reales del día en mono,
           en vez del párrafo de resumen genérico. */}
       <div className="grid grid-cols-2 divide-x divide-line border-b border-line sm:grid-cols-3">
-        <ScoreboardStat label="Socios" value={state.kind === 'success' ? state.data.total : null} />
+        <ScoreboardStat
+          label="Socios"
+          value={state.kind === 'success' ? state.data.statusCounts.all : null}
+        />
         <ScoreboardStat label="Asistencias hoy" value={attendanceSummary?.today ?? null} />
         <ScoreboardStat
           label="Últimos 30 días"
@@ -186,6 +278,12 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
       </div>
 
       <CardContent className="flex flex-col gap-4">
+        <MembershipStatusTabs
+          value={statusFilter}
+          counts={state.kind === 'success' ? state.data.statusCounts : null}
+          onChange={handleStatusFilterChange}
+        />
+
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-chalk-faint" />
@@ -231,7 +329,8 @@ export default function MembersPanel({ getToken, role }: MembersPanelProps) {
                     <th className="px-4 py-2.5 font-medium">Nombre</th>
                     <th className="px-4 py-2.5 font-medium">Correo</th>
                     <th className="px-4 py-2.5 font-medium">Teléfono</th>
-                    <th className="px-4 py-2.5 font-medium">Estado</th>
+                    <th className="px-4 py-2.5 font-medium">Cuenta</th>
+                    <th className="px-4 py-2.5 font-medium">Membresía</th>
                     <th className="px-4 py-2.5 font-medium">Acciones</th>
                   </tr>
                 </thead>
@@ -308,13 +407,19 @@ function CreateMemberForm({ getToken, onCreated }: CreateMemberFormProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [nationalId, setNationalId] = useState('');
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: 'idle' });
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSubmitState({ kind: 'submitting' });
     try {
-      await createMember(getToken, { fullName, email, phone: phone || undefined });
+      await createMember(getToken, {
+        fullName,
+        email,
+        phone: phone || undefined,
+        nationalId: nationalId || undefined,
+      });
       onCreated();
     } catch (error) {
       setSubmitState({
@@ -353,6 +458,16 @@ function CreateMemberForm({ getToken, onCreated }: CreateMemberFormProps) {
           id="new-member-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="new-member-national-id">Cédula/DNI (opcional)</Label>
+        <Input
+          id="new-member-national-id"
+          value={nationalId}
+          onChange={(event) => setNationalId(event.target.value)}
+          placeholder="Para el check-in por identificación"
           className="mt-1"
         />
       </div>
@@ -427,6 +542,11 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
           </Badge>
         </td>
         <td className="px-4 py-2.5">
+          <Badge tone={MEMBER_LIST_STATUS_TONE[member.membershipStatus ?? 'none']}>
+            {MEMBER_LIST_STATUS_LABEL[member.membershipStatus ?? 'none']}
+          </Badge>
+        </td>
+        <td className="px-4 py-2.5">
           <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
@@ -491,7 +611,7 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
 
       {openSection && (
         <tr className="bg-surface-raised">
-          <td colSpan={6} className="p-3">
+          <td colSpan={7} className="p-3">
             <div className="rounded-lg border border-line bg-ink p-4">
               {openSection === 'membership' && (
                 <MembershipSection memberId={member.id} plans={plans} getToken={getToken} />
@@ -537,6 +657,7 @@ function EditMemberForm({
   const [fullName, setFullName] = useState(member.fullName);
   const [email, setEmail] = useState(member.email ?? '');
   const [phone, setPhone] = useState(member.phone ?? '');
+  const [nationalId, setNationalId] = useState(member.nationalId ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -545,7 +666,12 @@ function EditMemberForm({
     setBusy(true);
     setError(null);
     try {
-      await updateMember(getToken, member.id, { fullName, email, phone: phone || null });
+      await updateMember(getToken, member.id, {
+        fullName,
+        email,
+        phone: phone || null,
+        nationalId: nationalId || null,
+      });
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar el cambio');
@@ -581,6 +707,16 @@ function EditMemberForm({
           id="edit-member-phone"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <Label htmlFor="edit-member-national-id">Cédula/DNI</Label>
+        <Input
+          id="edit-member-national-id"
+          value={nationalId}
+          onChange={(event) => setNationalId(event.target.value)}
+          placeholder="Para el check-in por identificación"
           className="mt-1"
         />
       </div>

@@ -20,9 +20,16 @@ vi.mock('../attendance-repo', () => ({
 
 const getMemberByIdMock = vi.fn();
 const getMemberByUserIdMock = vi.fn();
+const getMemberByNationalIdMock = vi.fn();
 vi.mock('../members-repo', () => ({
   getMemberById: (...args: unknown[]) => getMemberByIdMock(...args),
   getMemberByUserId: (...args: unknown[]) => getMemberByUserIdMock(...args),
+  getMemberByNationalId: (...args: unknown[]) => getMemberByNationalIdMock(...args),
+}));
+
+const listMembershipsMock = vi.fn();
+vi.mock('../memberships-repo', () => ({
+  listMemberships: (...args: unknown[]) => listMembershipsMock(...args),
 }));
 
 vi.mock('../gym-settings-repo', () => ({
@@ -34,6 +41,7 @@ const {
   handleListAttendance,
   handleGetAttendanceSummary,
   handleCreateAttendance,
+  handleKioskCheckIn,
   handleGetMyAttendance,
 } = await import('./attendance');
 
@@ -69,6 +77,30 @@ const memberUser = {
 
 const sampleMember = { id: 'member_1', isActive: true } as MemberDetail;
 
+const sampleKioskMember = {
+  id: 'member_1',
+  memberCode: 'SOC-0001',
+  fullName: 'Socio Uno',
+  isActive: true,
+} as MemberDetail;
+
+function sampleMembership(status: 'active' | 'expired' | 'pending' | 'suspended' | 'cancelled') {
+  return {
+    id: 'ms_1',
+    memberId: 'member_1',
+    planId: 'plan_1',
+    planName: 'Mensual',
+    startDate: '2026-08-01',
+    endDate: '2026-09-30',
+    priceAgreed: 50,
+    status,
+    renewedFromId: null,
+    expiryNoticeSentAt: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  };
+}
+
 const sampleAttendance: AttendanceRecord = {
   id: 'att_1',
   memberId: 'member_1',
@@ -85,6 +117,8 @@ beforeEach(() => {
   getAttendanceSummaryMock.mockReset();
   getMemberByIdMock.mockReset();
   getMemberByUserIdMock.mockReset();
+  getMemberByNationalIdMock.mockReset();
+  listMembershipsMock.mockReset();
 });
 
 describe('GET /api/attendance', () => {
@@ -189,6 +223,107 @@ describe('POST /api/attendance', () => {
     const response = await handleCreateAttendance(makeRequest({ memberId: 'member_1' }), fakeEnv);
 
     expect(response.status).toBe(201);
+  });
+});
+
+describe('POST /api/attendance/check-in', () => {
+  function makeRequest(body: unknown) {
+    return new Request('https://x.test/api/attendance/check-in', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('responde 403 para un entrenador', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: trainer });
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+    expect(response.status).toBe(403);
+    expect(getMemberByNationalIdMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 422 sin nationalId', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    const response = await handleKioskCheckIn(makeRequest({}), fakeEnv);
+    expect(response.status).toBe(422);
+  });
+
+  it('responde 404 si no hay socio con esa identificación', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    getMemberByNationalIdMock.mockResolvedValue(null);
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '000' }), fakeEnv);
+    expect(response.status).toBe(404);
+  });
+
+  it('responde 409 si el socio está desactivado', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    getMemberByNationalIdMock.mockResolvedValue({ ...sampleKioskMember, isActive: false });
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+    expect(response.status).toBe(409);
+    expect(listMembershipsMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 409 sin membresía asignada', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    getMemberByNationalIdMock.mockResolvedValue(sampleKioskMember);
+    listMembershipsMock.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 1 });
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('NO_MEMBERSHIP');
+    expect(createAttendanceMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 409 con membresía vencida', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    getMemberByNationalIdMock.mockResolvedValue(sampleKioskMember);
+    listMembershipsMock.mockResolvedValue({
+      items: [sampleMembership('expired')],
+      total: 1,
+      page: 1,
+      pageSize: 1,
+    });
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('MEMBERSHIP_NOT_ACTIVE');
+    expect(createAttendanceMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 409 si ya hay un ingreso reciente (duplicado)', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    getMemberByNationalIdMock.mockResolvedValue(sampleKioskMember);
+    listMembershipsMock.mockResolvedValue({
+      items: [sampleMembership('active')],
+      total: 1,
+      page: 1,
+      pageSize: 1,
+    });
+    createAttendanceMock.mockResolvedValue({
+      kind: 'duplicate',
+      lastCheckedInAt: '2026-09-02T09:30:00.000Z',
+    });
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('DUPLICATE_ATTENDANCE');
+  });
+
+  it('responde 201 con membresía activa', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    getMemberByNationalIdMock.mockResolvedValue(sampleKioskMember);
+    listMembershipsMock.mockResolvedValue({
+      items: [sampleMembership('active')],
+      total: 1,
+      page: 1,
+      pageSize: 1,
+    });
+    createAttendanceMock.mockResolvedValue({ kind: 'created', attendance: sampleAttendance });
+
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { member: { fullName: string } };
+    expect(body.member.fullName).toBe('Socio Uno');
   });
 });
 

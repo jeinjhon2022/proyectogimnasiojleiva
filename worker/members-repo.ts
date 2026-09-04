@@ -1,4 +1,7 @@
 import { makeUnclaimedClerkId } from './users-repo';
+import { addDays } from './dates';
+import { computeDisplayStatus } from './memberships-repo';
+import { EXPIRY_NOTICE_WINDOW_DAYS } from './jobs/expiry-notices';
 
 export interface MemberDetail {
   id: string;
@@ -12,7 +15,17 @@ export interface MemberDetail {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  // Cédula/DNI, para el check-in de kiosco (buscar por identificación). Opcional:
+  // los socios existentes no lo tienen cargado hasta que alguien lo complete.
+  nationalId: string | null;
 }
+
+// Estado de membresía tal como se muestra en la lista de socios (filtro por pestañas).
+// Distinto de MembershipStatus (memberships-repo.ts): agrega 'expiring' (activa y más
+// próxima a vencer, mismo umbral que el aviso por correo) y 'none' (sin membresía
+// asignada todavía), y se calcula solo a partir de la membresía más reciente del socio.
+export type MemberMembershipStatus =
+  'none' | 'pending' | 'active' | 'expiring' | 'expired' | 'suspended' | 'cancelled';
 
 export interface MemberSummary {
   id: string;
@@ -21,6 +34,7 @@ export interface MemberSummary {
   email: string;
   phone: string | null;
   isActive: boolean;
+  membershipStatus: MemberMembershipStatus;
 }
 
 export interface CreateMemberInput {
@@ -30,6 +44,7 @@ export interface CreateMemberInput {
   birthDate?: string | undefined;
   joinDate?: string | undefined;
   notes?: string | undefined;
+  nationalId?: string | undefined;
 }
 
 export interface UpdateMemberInput {
@@ -38,12 +53,26 @@ export interface UpdateMemberInput {
   phone?: string | null | undefined;
   birthDate?: string | null | undefined;
   notes?: string | null | undefined;
+  nationalId?: string | null | undefined;
 }
+
+export type MemberListStatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 
 export interface ListMembersParams {
   page: number;
   pageSize: number;
   q?: string | undefined;
+  membershipStatus?: MemberListStatusFilter | undefined;
+}
+
+// Conteos por pestaña (Todos/Activos/Por vencer/Vencidos) sobre el mismo conjunto que
+// ya coincide con la búsqueda `q`, calculados en la misma consulta que trae la lista
+// para no gastar lecturas de D1 extra por cada pestaña.
+export interface MemberStatusCounts {
+  all: number;
+  active: number;
+  expiring: number;
+  expired: number;
 }
 
 export interface ListMembersResult {
@@ -51,6 +80,7 @@ export interface ListMembersResult {
   total: number;
   page: number;
   pageSize: number;
+  statusCounts: MemberStatusCounts;
 }
 
 const MEMBER_CODE_PREFIX = 'SOC-';
@@ -83,6 +113,7 @@ interface MemberDetailRow {
   updated_at: string;
   full_name: string;
   email: string;
+  national_id: string | null;
 }
 
 function mapDetail(row: MemberDetailRow): MemberDetail {
@@ -98,12 +129,13 @@ function mapDetail(row: MemberDetailRow): MemberDetail {
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    nationalId: row.national_id,
   };
 }
 
 const MEMBER_DETAIL_SELECT = `
   SELECT m.id, m.member_code, m.phone, m.birth_date, m.join_date, m.is_active, m.notes,
-         m.created_at, m.updated_at, u.full_name, u.email
+         m.created_at, m.updated_at, m.national_id, u.full_name, u.email
   FROM members m
   JOIN users u ON u.id = m.user_id
 `;
@@ -112,6 +144,20 @@ export async function getMemberById(db: D1Database, id: string): Promise<MemberD
   const row = await db
     .prepare(`${MEMBER_DETAIL_SELECT} WHERE m.id = ?`)
     .bind(id)
+    .first<MemberDetailRow>();
+  return row ? mapDetail(row) : null;
+}
+
+// Búsqueda para el check-in de kiosco (PLAN.md — módulo de asistencia): por cédula/DNI
+// exacta en vez de recorrer la lista. `nationalId` es opcional en members, así que un
+// socio sin ese dato cargado nunca puede "encontrarse" por accidente con un WHERE = ''.
+export async function getMemberByNationalId(
+  db: D1Database,
+  nationalId: string,
+): Promise<MemberDetail | null> {
+  const row = await db
+    .prepare(`${MEMBER_DETAIL_SELECT} WHERE m.national_id = ?`)
+    .bind(nationalId)
     .first<MemberDetailRow>();
   return row ? mapDetail(row) : null;
 }
@@ -136,52 +182,96 @@ interface MemberListRow {
   full_name: string;
   email: string;
   is_active: number;
+  ms_status: string | null;
+  ms_start_date: string | null;
+  ms_end_date: string | null;
 }
 
-// Búsqueda por nombre, correo, teléfono o código de socio (PLAN.md sección 6.2), paginada.
+// Deriva el estado de membresía de la lista de socios a partir de su membresía más
+// reciente (o 'none' si nunca tuvo una). Reutiliza computeDisplayStatus para no duplicar
+// la regla pending/active/expired, y añade 'expiring' con el mismo umbral que el aviso
+// de vencimiento por correo (EXPIRY_NOTICE_WINDOW_DAYS) para que la pestaña "Por vencer"
+// de la lista coincida con cuándo se le avisa al socio.
+export function computeMemberListStatus(
+  row: Pick<MemberListRow, 'ms_status' | 'ms_start_date' | 'ms_end_date'>,
+  today: string,
+): MemberMembershipStatus {
+  if (!row.ms_status || !row.ms_start_date || !row.ms_end_date) return 'none';
+  const status = computeDisplayStatus(row.ms_status, row.ms_start_date, row.ms_end_date, today);
+  if (status === 'active' && row.ms_end_date <= addDays(today, EXPIRY_NOTICE_WINDOW_DAYS)) {
+    return 'expiring';
+  }
+  return status;
+}
+
+// Búsqueda por nombre, correo, teléfono o código de socio (PLAN.md sección 6.2), paginada,
+// con filtro opcional por estado de membresía (pestañas Todos/Activos/Por vencer/Vencidos).
+// El estado no vive en una columna (se deriva de fechas, igual que en listMemberships), así
+// que — mismo criterio ya aceptado ahí — se trae la membresía más reciente de cada socio
+// que coincide con la búsqueda en una sola consulta (sin límite de página todavía) y el
+// filtro/paginado por estado se resuelve en memoria. Aceptable al volumen esperado
+// (~100 socios, PLAN.md sección 14); los conteos por pestaña salen de la misma pasada,
+// sin lecturas adicionales a D1.
 export async function listMembers(
   db: D1Database,
   params: ListMembersParams,
+  today: string,
 ): Promise<ListMembersResult> {
-  const { page, pageSize, q } = params;
-  const offset = (page - 1) * pageSize;
+  const { page, pageSize, q, membershipStatus } = params;
   const trimmedQuery = q?.trim();
 
   const whereClause = trimmedQuery
-    ? 'WHERE u.full_name LIKE ? OR u.email LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ?'
+    ? 'WHERE u.full_name LIKE ? OR u.email LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ? OR m.national_id LIKE ?'
     : '';
   const likeParam = `%${trimmedQuery}%`;
-  const whereParams = trimmedQuery ? [likeParam, likeParam, likeParam, likeParam] : [];
-
-  const countRow = await db
-    .prepare(
-      `SELECT COUNT(*) as total FROM members m JOIN users u ON u.id = m.user_id ${whereClause}`,
-    )
-    .bind(...whereParams)
-    .first<{ total: number }>();
+  const whereParams = trimmedQuery ? [likeParam, likeParam, likeParam, likeParam, likeParam] : [];
 
   const listResult = await db
     .prepare(
-      `SELECT m.id, m.member_code, m.phone, u.full_name, u.email, m.is_active
+      `SELECT m.id, m.member_code, m.phone, u.full_name, u.email, m.is_active,
+              ms.status AS ms_status, ms.start_date AS ms_start_date, ms.end_date AS ms_end_date
        FROM members m
        JOIN users u ON u.id = m.user_id
+       LEFT JOIN memberships ms ON ms.id = (
+         SELECT id FROM memberships WHERE member_id = m.id ORDER BY start_date DESC LIMIT 1
+       )
        ${whereClause}
-       ORDER BY u.full_name ASC
-       LIMIT ? OFFSET ?`,
+       ORDER BY u.full_name ASC`,
     )
-    .bind(...whereParams, pageSize, offset)
+    .bind(...whereParams)
     .all<MemberListRow>();
 
-  const items: MemberSummary[] = listResult.results.map((row) => ({
+  const withStatus: MemberSummary[] = listResult.results.map((row) => ({
     id: row.id,
     memberCode: row.member_code,
     fullName: row.full_name,
     email: row.email,
     phone: row.phone,
     isActive: row.is_active === 1,
+    membershipStatus: computeMemberListStatus(row, today),
   }));
 
-  return { items, total: countRow?.total ?? 0, page, pageSize };
+  const statusCounts: MemberStatusCounts = {
+    all: withStatus.length,
+    active: 0,
+    expiring: 0,
+    expired: 0,
+  };
+  for (const item of withStatus) {
+    if (item.membershipStatus === 'active') statusCounts.active += 1;
+    else if (item.membershipStatus === 'expiring') statusCounts.expiring += 1;
+    else if (item.membershipStatus === 'expired') statusCounts.expired += 1;
+  }
+
+  const filtered =
+    membershipStatus && membershipStatus !== 'all'
+      ? withStatus.filter((item) => item.membershipStatus === membershipStatus)
+      : withStatus;
+
+  const offset = (page - 1) * pageSize;
+  const items = filtered.slice(offset, offset + pageSize);
+
+  return { items, total: filtered.length, page, pageSize, statusCounts };
 }
 
 // Crea el socio: fila en users (rol member, sin cuenta de Clerk todavía) + fila en
@@ -206,7 +296,7 @@ export async function createMember(
       .bind(userId, makeUnclaimedClerkId(userId), input.email, input.fullName, 'member', now, now),
     db
       .prepare(
-        'INSERT INTO members (id, user_id, member_code, phone, birth_date, join_date, is_active, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
+        'INSERT INTO members (id, user_id, member_code, phone, birth_date, join_date, is_active, notes, national_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)',
       )
       .bind(
         memberId,
@@ -216,6 +306,7 @@ export async function createMember(
         input.birthDate ?? null,
         joinDate,
         input.notes ?? null,
+        input.nationalId ?? null,
         now,
         now,
       ),
@@ -262,15 +353,21 @@ export async function updateMember(
   }
 
   const memberFieldsChanged =
-    patch.phone !== undefined || patch.birthDate !== undefined || patch.notes !== undefined;
+    patch.phone !== undefined ||
+    patch.birthDate !== undefined ||
+    patch.notes !== undefined ||
+    patch.nationalId !== undefined;
   if (memberFieldsChanged) {
     const phone = patch.phone !== undefined ? patch.phone : current.phone;
     const birthDate = patch.birthDate !== undefined ? patch.birthDate : current.birthDate;
     const notes = patch.notes !== undefined ? patch.notes : current.notes;
+    const nationalId = patch.nationalId !== undefined ? patch.nationalId : current.nationalId;
     statements.push(
       db
-        .prepare('UPDATE members SET phone = ?, birth_date = ?, notes = ? WHERE id = ?')
-        .bind(phone, birthDate, notes, id),
+        .prepare(
+          'UPDATE members SET phone = ?, birth_date = ?, notes = ?, national_id = ? WHERE id = ?',
+        )
+        .bind(phone, birthDate, notes, nationalId, id),
     );
   }
 

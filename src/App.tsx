@@ -1,9 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react';
-import { AlertTriangle, ClipboardList, Dumbbell, LayoutGrid, Loader2, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ClipboardList,
+  Dumbbell,
+  Fingerprint,
+  LayoutGrid,
+  Loader2,
+  Users,
+} from 'lucide-react';
 import MembersPanel from './members/MembersPanel';
 import RoutinesPanel from './routines/RoutinesPanel';
 import MemberDashboard from './member/MemberDashboard';
+import KioskCheckIn from './attendance/KioskCheckIn';
 import OfflineBanner from './OfflineBanner';
 import { Badge } from './components/ui/badge';
 import type { Role } from './api';
@@ -40,11 +49,15 @@ function navItemsForRole(role: Role): NavItem[] {
   switch (role) {
     case 'admin':
       return [
+        { id: 'checkin', label: 'Check-in', icon: Fingerprint },
         { id: 'socios', label: 'Socios', icon: Users },
         { id: 'rutinas', label: 'Rutinas', icon: ClipboardList },
       ];
     case 'receptionist':
-      return [{ id: 'socios', label: 'Socios', icon: Users }];
+      return [
+        { id: 'checkin', label: 'Check-in', icon: Fingerprint },
+        { id: 'socios', label: 'Socios', icon: Users },
+      ];
     case 'trainer':
       return [{ id: 'rutinas', label: 'Rutinas', icon: ClipboardList }];
     case 'member':
@@ -258,6 +271,12 @@ function AuthenticatedHome() {
     <AppShell role={role} fullName={fullName}>
       {/* Ocultar esto en el frontend es solo UX: el Worker vuelve a exigir el rol
           en cada request de /api/members (CLAUDE.md sección 5). */}
+      {(role === 'admin' || role === 'receptionist') && (
+        <div id="checkin">
+          <KioskCheckIn getToken={getToken} />
+        </div>
+      )}
+
       {(role === 'admin' || role === 'receptionist') && (
         <div id="socios">
           <MembersPanel getToken={getToken} role={role} />

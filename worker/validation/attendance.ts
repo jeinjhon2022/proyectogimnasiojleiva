@@ -13,6 +13,13 @@ export const createAttendanceSchema = z.object({
 
 export type CreateAttendanceBody = z.infer<typeof createAttendanceSchema>;
 
+// Check-in de kiosco (busca al socio por cédula/DNI en vez de elegirlo de una lista).
+export const kioskCheckInSchema = z.object({
+  nationalId: z.string().trim().min(1, 'Ingresa un número de identificación').max(30),
+});
+
+export type KioskCheckInBody = z.infer<typeof kioskCheckInSchema>;
+
 export const listAttendanceQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

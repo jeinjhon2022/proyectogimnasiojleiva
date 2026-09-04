@@ -18,6 +18,7 @@ import {
 import { isMemberAssignedToTrainer } from '../routines-repo';
 import { buildWelcomeEmail } from '../emails';
 import { sendEmailWithResend } from '../resend';
+import { getGymTimezone, todayInTimezone } from '../gym-settings-repo';
 
 // Matriz de permisos (PLAN.md sección 7): recepcionista y admin administran socios sin
 // restricciones. Entrenador (desde la Fase 8, con routine_assignments ya existente):
@@ -34,6 +35,7 @@ function toMemberSummaryDto(member: MemberSummary, hideContactInfo: boolean) {
     email: hideContactInfo ? null : member.email,
     phone: hideContactInfo ? null : member.phone,
     isActive: member.isActive,
+    membershipStatus: member.membershipStatus,
   };
 }
 
@@ -66,6 +68,7 @@ export async function handleListMembers(request: Request, env: Env): Promise<Res
     page: url.searchParams.get('page') ?? undefined,
     pageSize: url.searchParams.get('pageSize') ?? undefined,
     q: url.searchParams.get('q') ?? undefined,
+    membershipStatus: url.searchParams.get('membershipStatus') ?? undefined,
   });
   if (!parsed.success) {
     return errorResponse(
@@ -75,7 +78,9 @@ export async function handleListMembers(request: Request, env: Env): Promise<Res
     );
   }
 
-  const result = await listMembers(env.DB, parsed.data);
+  const timezone = await getGymTimezone(env.DB);
+  const today = todayInTimezone(timezone);
+  const result = await listMembers(env.DB, parsed.data, today);
   // El entrenador puede buscar socios (para asignarles una rutina), pero sin ver su
   // correo/teléfono — solo obtiene esos datos cuando el socio ya le está asignado.
   const hideContactInfo = auth.user.role === 'trainer';

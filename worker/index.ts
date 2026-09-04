@@ -31,6 +31,7 @@ import {
   handleCreateAttendance,
   handleGetAttendanceSummary,
   handleGetMyAttendance,
+  handleKioskCheckIn,
   handleListAttendance,
 } from './routes/attendance';
 import { handleCreateExercise, handleListExercises } from './routes/exercises';
@@ -175,6 +176,12 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     if (request.method !== 'GET')
       return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
     return handleGetAttendanceSummary(request, env);
+  }
+
+  if (url.pathname === '/api/attendance/check-in') {
+    if (request.method !== 'POST')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleKioskCheckIn(request, env);
   }
 
   if (url.pathname === '/api/attendance') {

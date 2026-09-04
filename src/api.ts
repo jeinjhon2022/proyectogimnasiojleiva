@@ -47,6 +47,11 @@ async function apiFetch<T>(
   return (await response.json()) as T;
 }
 
+// Estado de membresía tal como lo devuelve GET /api/members para cada socio (pestañas
+// Todos/Activos/Por vencer/Vencidos). 'none' = todavía no tiene ninguna membresía.
+export type MemberListStatus =
+  'none' | 'pending' | 'active' | 'expiring' | 'expired' | 'suspended' | 'cancelled';
+
 export interface Member {
   id: string;
   memberCode: string;
@@ -61,6 +66,18 @@ export interface Member {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  // Cédula/DNI, para el check-in de kiosco. Opcional: puede no estar cargada todavía.
+  nationalId: string | null;
+  // Solo viene en la lista (GET /api/members); el detalle (GET /api/members/:id) no
+  // lo incluye todavía.
+  membershipStatus?: MemberListStatus;
+}
+
+export interface MemberStatusCounts {
+  all: number;
+  active: number;
+  expiring: number;
+  expired: number;
 }
 
 export interface MembersPage {
@@ -68,12 +85,16 @@ export interface MembersPage {
   total: number;
   page: number;
   pageSize: number;
+  statusCounts: MemberStatusCounts;
 }
+
+export type MemberStatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 
 export interface ListMembersParams {
   page: number;
   pageSize: number;
   q?: string | undefined;
+  membershipStatus?: MemberStatusFilter | undefined;
 }
 
 export function listMembers(
@@ -84,6 +105,7 @@ export function listMembers(
   search.set('page', String(params.page));
   search.set('pageSize', String(params.pageSize));
   if (params.q) search.set('q', params.q);
+  if (params.membershipStatus) search.set('membershipStatus', params.membershipStatus);
   return apiFetch<MembersPage>(getToken, `/api/members?${search.toString()}`);
 }
 
@@ -92,6 +114,7 @@ export interface CreateMemberInput {
   email: string;
   phone?: string | undefined;
   birthDate?: string | undefined;
+  nationalId?: string | undefined;
 }
 
 export function createMember(getToken: TokenGetter, input: CreateMemberInput): Promise<Member> {
@@ -105,6 +128,7 @@ export interface UpdateMemberInput {
   fullName?: string;
   email?: string;
   phone?: string | null;
+  nationalId?: string | null;
 }
 
 export function updateMember(
@@ -241,12 +265,14 @@ export function voidPayment(
 export interface AttendanceRecord {
   id: string;
   memberId: string;
+  memberFullName: string;
   checkedInAt: string;
   source: 'manual' | 'qr';
 }
 
 export interface ListAttendanceParams {
-  memberId: string;
+  // Sin memberId: lista global (staff), usada por ejemplo en "últimos ingresos" del kiosco.
+  memberId?: string | undefined;
   page?: number;
   pageSize?: number;
 }
@@ -256,7 +282,7 @@ export function listAttendance(
   params: ListAttendanceParams,
 ): Promise<{ items: AttendanceRecord[]; total: number }> {
   const search = new URLSearchParams();
-  search.set('memberId', params.memberId);
+  if (params.memberId) search.set('memberId', params.memberId);
   search.set('page', String(params.page ?? 1));
   search.set('pageSize', String(params.pageSize ?? 5));
   return apiFetch(getToken, `/api/attendance?${search.toString()}`);
@@ -269,6 +295,24 @@ export function createAttendance(
   return apiFetch<AttendanceRecord>(getToken, '/api/attendance', {
     method: 'POST',
     body: JSON.stringify({ memberId }),
+  });
+}
+
+export interface KioskCheckInResult {
+  attendance: AttendanceRecord;
+  member: { id: string; fullName: string; memberCode: string };
+  membership: { planName: string; endDate: string };
+}
+
+// Check-in de kiosco por cédula/DNI (worker/routes/attendance.ts: POST /api/attendance/check-in).
+// A diferencia de createAttendance, valida que la membresía esté vigente.
+export function kioskCheckIn(
+  getToken: TokenGetter,
+  nationalId: string,
+): Promise<KioskCheckInResult> {
+  return apiFetch<KioskCheckInResult>(getToken, '/api/attendance/check-in', {
+    method: 'POST',
+    body: JSON.stringify({ nationalId }),
   });
 }
 
