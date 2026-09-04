@@ -35,6 +35,9 @@ export interface MemberSummary {
   phone: string | null;
   isActive: boolean;
   membershipStatus: MemberMembershipStatus;
+  // Deuda de la membresía más reciente (0 si no tiene ninguna o ya está saldada).
+  // Independiente de membershipStatus: un socio puede estar "Activo" y tener deuda.
+  debt: number;
 }
 
 export interface CreateMemberInput {
@@ -56,7 +59,9 @@ export interface UpdateMemberInput {
   nationalId?: string | null | undefined;
 }
 
-export type MemberListStatusFilter = 'all' | 'active' | 'expiring' | 'expired';
+// 'debt' es una dimensión aparte de las demás (un socio "Activo" puede tener deuda):
+// al filtrar por 'debt' se ignora el estado de fechas y se muestra a quien deba > 0.
+export type MemberListStatusFilter = 'all' | 'active' | 'expiring' | 'expired' | 'debt';
 
 export interface ListMembersParams {
   page: number;
@@ -65,14 +70,15 @@ export interface ListMembersParams {
   membershipStatus?: MemberListStatusFilter | undefined;
 }
 
-// Conteos por pestaña (Todos/Activos/Por vencer/Vencidos) sobre el mismo conjunto que
-// ya coincide con la búsqueda `q`, calculados en la misma consulta que trae la lista
-// para no gastar lecturas de D1 extra por cada pestaña.
+// Conteos por pestaña (Todos/Activos/Por vencer/Vencidos/Con deuda) sobre el mismo
+// conjunto que ya coincide con la búsqueda `q`, calculados en la misma consulta que trae
+// la lista para no gastar lecturas de D1 extra por cada pestaña.
 export interface MemberStatusCounts {
   all: number;
   active: number;
   expiring: number;
   expired: number;
+  debt: number;
 }
 
 export interface ListMembersResult {
@@ -185,6 +191,8 @@ interface MemberListRow {
   ms_status: string | null;
   ms_start_date: string | null;
   ms_end_date: string | null;
+  ms_price_agreed: number | null;
+  ms_amount_paid: number;
 }
 
 // Deriva el estado de membresía de la lista de socios a partir de su membresía más
@@ -202,6 +210,13 @@ export function computeMemberListStatus(
     return 'expiring';
   }
   return status;
+}
+
+// Misma cuenta que Membership.debt (memberships-repo.ts), pero a partir de la fila ya
+// traída en la lista de socios en vez de una consulta aparte.
+function computeMemberListDebt(row: Pick<MemberListRow, 'ms_price_agreed' | 'ms_amount_paid'>) {
+  if (row.ms_price_agreed === null) return 0;
+  return Math.max(0, row.ms_price_agreed - row.ms_amount_paid);
 }
 
 // Búsqueda por nombre, correo, teléfono o código de socio (PLAN.md sección 6.2), paginada,
@@ -229,7 +244,13 @@ export async function listMembers(
   const listResult = await db
     .prepare(
       `SELECT m.id, m.member_code, m.phone, u.full_name, u.email, m.is_active,
-              ms.status AS ms_status, ms.start_date AS ms_start_date, ms.end_date AS ms_end_date
+              ms.status AS ms_status, ms.start_date AS ms_start_date, ms.end_date AS ms_end_date,
+              ms.price_agreed AS ms_price_agreed,
+              COALESCE(
+                (SELECT SUM(p.amount) FROM payments p
+                 WHERE p.membership_id = ms.id AND p.status = 'completed'),
+                0
+              ) AS ms_amount_paid
        FROM members m
        JOIN users u ON u.id = m.user_id
        LEFT JOIN memberships ms ON ms.id = (
@@ -249,6 +270,7 @@ export async function listMembers(
     phone: row.phone,
     isActive: row.is_active === 1,
     membershipStatus: computeMemberListStatus(row, today),
+    debt: computeMemberListDebt(row),
   }));
 
   const statusCounts: MemberStatusCounts = {
@@ -256,16 +278,20 @@ export async function listMembers(
     active: 0,
     expiring: 0,
     expired: 0,
+    debt: 0,
   };
   for (const item of withStatus) {
     if (item.membershipStatus === 'active') statusCounts.active += 1;
     else if (item.membershipStatus === 'expiring') statusCounts.expiring += 1;
     else if (item.membershipStatus === 'expired') statusCounts.expired += 1;
+    if (item.debt > 0) statusCounts.debt += 1;
   }
 
   const filtered =
     membershipStatus && membershipStatus !== 'all'
-      ? withStatus.filter((item) => item.membershipStatus === membershipStatus)
+      ? withStatus.filter((item) =>
+          membershipStatus === 'debt' ? item.debt > 0 : item.membershipStatus === membershipStatus,
+        )
       : withStatus;
 
   const offset = (page - 1) * pageSize;

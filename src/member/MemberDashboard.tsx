@@ -104,9 +104,16 @@ function MyMembershipSection({ getToken }: { getToken: TokenGetter }) {
             <p>
               Plan <strong>{state.data.planName}</strong>
             </p>
-            <Badge tone={STATUS_TONE[state.data.status]} className="w-fit">
-              {STATUS_LABELS[state.data.status]}
-            </Badge>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge tone={STATUS_TONE[state.data.status]} className="w-fit">
+                {STATUS_LABELS[state.data.status]}
+              </Badge>
+              {state.data.debt > 0 && (
+                <Badge tone="danger" className="w-fit">
+                  Debe USD {state.data.debt}
+                </Badge>
+              )}
+            </div>
             <p className="text-chalk-muted">
               Vigencia: {state.data.startDate} a {state.data.endDate}
             </p>

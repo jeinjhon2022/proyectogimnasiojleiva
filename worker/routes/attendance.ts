@@ -166,8 +166,17 @@ export async function handleKioskCheckIn(request: Request, env: Env): Promise<Re
   return jsonResponse(
     {
       attendance: result.attendance,
-      member: { id: member.id, fullName: member.fullName, memberCode: member.memberCode },
-      membership: { planName: latest.planName, endDate: latest.endDate },
+      member: {
+        id: member.id,
+        fullName: member.fullName,
+        memberCode: member.memberCode,
+        phone: member.phone,
+      },
+      // debt viaja aparte de status: una membresía activa puede igual tener saldo
+      // pendiente (pago parcial) — el kiosco lo usa para mostrar el banner ámbar en vez
+      // del verde, sin negarle el ingreso (CLAUDE.md sección 9: acceso vs. cobro son
+      // decisiones distintas).
+      membership: { planName: latest.planName, endDate: latest.endDate, debt: latest.debt },
     },
     { status: 201 },
   );

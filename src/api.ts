@@ -68,9 +68,10 @@ export interface Member {
   updatedAt: string;
   // Cédula/DNI, para el check-in de kiosco. Opcional: puede no estar cargada todavía.
   nationalId: string | null;
-  // Solo viene en la lista (GET /api/members); el detalle (GET /api/members/:id) no
-  // lo incluye todavía.
+  // Solo vienen en la lista (GET /api/members); el detalle (GET /api/members/:id) no
+  // los incluye todavía.
   membershipStatus?: MemberListStatus;
+  debt?: number;
 }
 
 export interface MemberStatusCounts {
@@ -78,6 +79,7 @@ export interface MemberStatusCounts {
   active: number;
   expiring: number;
   expired: number;
+  debt: number;
 }
 
 export interface MembersPage {
@@ -88,7 +90,7 @@ export interface MembersPage {
   statusCounts: MemberStatusCounts;
 }
 
-export type MemberStatusFilter = 'all' | 'active' | 'expiring' | 'expired';
+export type MemberStatusFilter = 'all' | 'active' | 'expiring' | 'expired' | 'debt';
 
 export interface ListMembersParams {
   page: number;
@@ -170,6 +172,9 @@ export interface Membership {
   priceAgreed: number;
   status: MembershipStatus;
   renewedFromId: string | null;
+  // Derivados de los pagos completados de esta membresía (nunca se guardan aparte).
+  amountPaid: number;
+  debt: number;
 }
 
 export interface ListMembershipsParams {
@@ -212,6 +217,7 @@ export type PaymentStatus = 'completed' | 'voided';
 export interface Payment {
   id: string;
   memberId: string;
+  membershipId: string | null;
   amount: number;
   method: PaymentMethod;
   paymentDate: string;
@@ -239,6 +245,7 @@ export function listPayments(
 
 export interface CreatePaymentInput {
   memberId: string;
+  membershipId?: string | undefined;
   amount: number;
   method: PaymentMethod;
   reference?: string | undefined;
@@ -300,8 +307,8 @@ export function createAttendance(
 
 export interface KioskCheckInResult {
   attendance: AttendanceRecord;
-  member: { id: string; fullName: string; memberCode: string };
-  membership: { planName: string; endDate: string };
+  member: { id: string; fullName: string; memberCode: string; phone: string | null };
+  membership: { planName: string; endDate: string; debt: number };
 }
 
 // Check-in de kiosco por cédula/DNI (worker/routes/attendance.ts: POST /api/attendance/check-in).
@@ -330,6 +337,7 @@ export interface MyMembership {
   planName: string;
   startDate: string;
   endDate: string;
+  debt: number;
 }
 
 export function getMyMembership(getToken: TokenGetter): Promise<MyMembership> {

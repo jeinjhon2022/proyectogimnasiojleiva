@@ -125,6 +125,7 @@ const STATUS_TABS: Array<{ key: MemberStatusFilter; label: string }> = [
   { key: 'active', label: 'Activos' },
   { key: 'expiring', label: 'Por vencer' },
   { key: 'expired', label: 'Vencidos' },
+  { key: 'debt', label: 'Con deuda' },
 ];
 
 // Pestañas de filtro con conteo real por estado (mismo espíritu que la referencia
@@ -141,7 +142,7 @@ function MembershipStatusTabs({
 }) {
   return (
     <div
-      className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+      className="grid grid-cols-2 gap-1.5 sm:grid-cols-5"
       role="tablist"
       aria-label="Filtrar socios por estado de membresía"
     >
@@ -542,9 +543,14 @@ function MemberRow({ member, getToken, plans, role, onChanged }: MemberRowProps)
           </Badge>
         </td>
         <td className="px-4 py-2.5">
-          <Badge tone={MEMBER_LIST_STATUS_TONE[member.membershipStatus ?? 'none']}>
-            {MEMBER_LIST_STATUS_LABEL[member.membershipStatus ?? 'none']}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge tone={MEMBER_LIST_STATUS_TONE[member.membershipStatus ?? 'none']}>
+              {MEMBER_LIST_STATUS_LABEL[member.membershipStatus ?? 'none']}
+            </Badge>
+            {!!member.debt && member.debt > 0 && (
+              <Badge tone="danger">Debe USD {member.debt}</Badge>
+            )}
+          </div>
         </td>
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-0.5">
@@ -806,6 +812,26 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
     }
   }
 
+  // Acción rápida: cobra el saldo pendiente completo de un solo clic (efectivo, sin
+  // referencia — para un ajuste distinto se usa el formulario de la pestaña Pagos).
+  // Es una acción con dinero real de por medio, así que se confirma antes (CLAUDE.md
+  // sección 9).
+  async function handleCollectDebt(membershipId: string, debt: number) {
+    const confirmed = window.confirm(`¿Registrar el cobro de USD ${debt} en efectivo?`);
+    if (!confirmed) return;
+
+    setBusy(true);
+    setActionError(null);
+    try {
+      await createPayment(getToken, { memberId, membershipId, amount: debt, method: 'cash' });
+      setReloadToken((value) => value + 1);
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : 'No se pudo registrar el cobro');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (state.kind === 'loading') {
     return (
       <p role="status" className="flex items-center gap-2 text-sm text-chalk-muted">
@@ -830,11 +856,22 @@ function MembershipSection({ memberId, plans, getToken }: MembershipSectionProps
         <div className="flex flex-wrap items-center gap-2">
           <span>
             Plan <strong>{latest.planName}</strong> · vigencia {latest.startDate} a {latest.endDate}{' '}
-            · USD {latest.priceAgreed}
+            · USD {latest.priceAgreed} (pagado {latest.amountPaid})
           </span>
           <Badge tone={MEMBERSHIP_STATUS_TONE[latest.status]}>
             {MEMBERSHIP_STATUS_LABEL[latest.status]}
           </Badge>
+          {latest.debt > 0 && <Badge tone="danger">Debe USD {latest.debt}</Badge>}
+          {latest.debt > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void handleCollectDebt(latest.id, latest.debt)}
+            >
+              Cobrar deuda (USD {latest.debt})
+            </Button>
+          )}
         </div>
       ) : (
         <p className="text-chalk-muted">Sin membresía asignada todavía.</p>
@@ -897,6 +934,7 @@ function PaymentsSection({
     | { kind: 'error'; message: string }
     | { kind: 'success'; payments: Payment[] }
   >({ kind: 'loading' });
+  const [latestMembership, setLatestMembership] = useState<Membership | null>(null);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
@@ -920,6 +958,17 @@ function PaymentsSection({
         }
       });
 
+    // Para saber a qué membresía atar el pago nuevo y mostrar la deuda vigente (ver
+    // MembershipSection, que muestra lo mismo — cada sección se resuelve por su cuenta,
+    // como el resto de las secciones de esta fila).
+    listMemberships(getToken, { memberId, page: 1, pageSize: 1 })
+      .then((data) => {
+        if (!cancelled) setLatestMembership(data.items[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLatestMembership(null);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -938,6 +987,7 @@ function PaymentsSection({
     try {
       await createPayment(getToken, {
         memberId,
+        membershipId: latestMembership?.id,
         amount: parsedAmount,
         method,
         reference: reference || undefined,
@@ -980,6 +1030,12 @@ function PaymentsSection({
           {state.message}
         </p>
       )}
+      {latestMembership && latestMembership.debt > 0 && (
+        <p className="flex items-center gap-2">
+          <Badge tone="danger">Saldo pendiente: USD {latestMembership.debt}</Badge>
+        </p>
+      )}
+
       {state.kind === 'success' && state.payments.length === 0 && (
         <p className="text-chalk-muted">Sin pagos registrados todavía.</p>
       )}

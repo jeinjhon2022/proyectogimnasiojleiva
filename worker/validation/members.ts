@@ -43,7 +43,7 @@ export const listMembersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().min(1).max(200).optional(),
-  membershipStatus: z.enum(['all', 'active', 'expiring', 'expired']).default('all'),
+  membershipStatus: z.enum(['all', 'active', 'expiring', 'expired', 'debt']).default('all'),
 });
 
 export type ListMembersQuery = z.infer<typeof listMembersQuerySchema>;

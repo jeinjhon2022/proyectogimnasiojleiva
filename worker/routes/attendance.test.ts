@@ -84,7 +84,10 @@ const sampleKioskMember = {
   isActive: true,
 } as MemberDetail;
 
-function sampleMembership(status: 'active' | 'expired' | 'pending' | 'suspended' | 'cancelled') {
+function sampleMembership(
+  status: 'active' | 'expired' | 'pending' | 'suspended' | 'cancelled',
+  debt = 0,
+) {
   return {
     id: 'ms_1',
     memberId: 'member_1',
@@ -98,6 +101,8 @@ function sampleMembership(status: 'active' | 'expired' | 'pending' | 'suspended'
     expiryNoticeSentAt: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
+    amountPaid: 50 - debt,
+    debt,
   };
 }
 
@@ -324,6 +329,24 @@ describe('POST /api/attendance/check-in', () => {
     expect(response.status).toBe(201);
     const body = (await response.json()) as { member: { fullName: string } };
     expect(body.member.fullName).toBe('Socio Uno');
+  });
+
+  it('responde 201 con membresía activa pero deuda pendiente (no bloquea el ingreso)', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    getMemberByNationalIdMock.mockResolvedValue(sampleKioskMember);
+    listMembershipsMock.mockResolvedValue({
+      items: [sampleMembership('active', 20)],
+      total: 1,
+      page: 1,
+      pageSize: 1,
+    });
+    createAttendanceMock.mockResolvedValue({ kind: 'created', attendance: sampleAttendance });
+
+    const response = await handleKioskCheckIn(makeRequest({ nationalId: '12345678' }), fakeEnv);
+
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { membership: { debt: number } };
+    expect(body.membership.debt).toBe(20);
   });
 });
 

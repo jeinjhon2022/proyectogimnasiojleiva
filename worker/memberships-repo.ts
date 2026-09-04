@@ -16,6 +16,12 @@ export interface Membership {
   expiryNoticeSentAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Derivados, no columnas propias: nunca se guarda una "deuda" por separado, para que
+  // no pueda desincronizarse de los pagos reales. amountPaid = suma de pagos completados
+  // de esta membresía; debt = lo que falta de priceAgreed (nunca negativo: un pago de
+  // más no genera "deuda negativa", solo queda con saldo a cero).
+  amountPaid: number;
+  debt: number;
 }
 
 interface MembershipRow {
@@ -31,6 +37,7 @@ interface MembershipRow {
   expiry_notice_sent_at: string | null;
   created_at: string;
   updated_at: string;
+  amount_paid: number;
 }
 
 // pending/active/expired se recalculan siempre a partir de las fechas al leer, en vez
@@ -55,6 +62,7 @@ function computeInitialStatus(startDate: string, today: string): 'pending' | 'ac
 }
 
 function mapMembership(row: MembershipRow, today: string): Membership {
+  const debt = Math.max(0, row.price_agreed - row.amount_paid);
   return {
     id: row.id,
     memberId: row.member_id,
@@ -68,13 +76,20 @@ function mapMembership(row: MembershipRow, today: string): Membership {
     expiryNoticeSentAt: row.expiry_notice_sent_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    amountPaid: row.amount_paid,
+    debt,
   };
 }
 
 const MEMBERSHIP_SELECT = `
   SELECT ms.id, ms.member_id, ms.plan_id, mp.name AS plan_name, ms.start_date, ms.end_date,
          ms.price_agreed, ms.status, ms.renewed_from_id, ms.expiry_notice_sent_at,
-         ms.created_at, ms.updated_at
+         ms.created_at, ms.updated_at,
+         COALESCE(
+           (SELECT SUM(p.amount) FROM payments p
+            WHERE p.membership_id = ms.id AND p.status = 'completed'),
+           0
+         ) AS amount_paid
   FROM memberships ms
   JOIN membership_plans mp ON mp.id = ms.plan_id
 `;
