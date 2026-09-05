@@ -29,6 +29,13 @@ describe('createExerciseSchema', () => {
       createExerciseSchema.safeParse({ name: 'Sentadilla', demoUrl: 'no es un link' }).success,
     ).toBe(false);
   });
+
+  it('acepta los 3 niveles y rechaza uno fuera de la lista', () => {
+    for (const level of ['beginner', 'intermediate', 'advanced']) {
+      expect(createExerciseSchema.safeParse({ name: 'X', level }).success).toBe(true);
+    }
+    expect(createExerciseSchema.safeParse({ name: 'X', level: 'expert' }).success).toBe(false);
+  });
 });
 
 describe('updateExerciseSchema', () => {

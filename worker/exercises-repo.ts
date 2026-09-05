@@ -1,3 +1,5 @@
+export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export interface Exercise {
   id: string;
   name: string;
@@ -6,6 +8,7 @@ export interface Exercise {
   // Enlace a un GIF/video corto de demostración (YouTube, o un archivo propio en R2).
   // No generado por IA — ver la nota de la migración 0020.
   demoUrl: string | null;
+  level: ExerciseLevel | null;
   isActive: boolean;
 }
 
@@ -15,6 +18,7 @@ interface ExerciseRow {
   description: string | null;
   muscle_group: string | null;
   demo_url: string | null;
+  level: string | null;
   is_active: number;
 }
 
@@ -25,12 +29,13 @@ function mapExercise(row: ExerciseRow): Exercise {
     description: row.description,
     muscleGroup: row.muscle_group,
     demoUrl: row.demo_url,
+    level: row.level as ExerciseLevel | null,
     isActive: row.is_active === 1,
   };
 }
 
 const EXERCISE_SELECT =
-  'SELECT id, name, description, muscle_group, demo_url, is_active FROM exercises';
+  'SELECT id, name, description, muscle_group, demo_url, level, is_active FROM exercises';
 
 export async function listExercises(db: D1Database): Promise<Exercise[]> {
   const result = await db.prepare(`${EXERCISE_SELECT} ORDER BY name ASC`).all<ExerciseRow>();
@@ -47,6 +52,7 @@ export interface CreateExerciseInput {
   description?: string | undefined;
   muscleGroup?: string | undefined;
   demoUrl?: string | undefined;
+  level?: ExerciseLevel | undefined;
 }
 
 export async function createExercise(
@@ -58,7 +64,7 @@ export async function createExercise(
 
   await db
     .prepare(
-      'INSERT INTO exercises (id, name, description, muscle_group, demo_url, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)',
+      'INSERT INTO exercises (id, name, description, muscle_group, demo_url, level, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)',
     )
     .bind(
       id,
@@ -66,6 +72,7 @@ export async function createExercise(
       input.description ?? null,
       input.muscleGroup ?? null,
       input.demoUrl ?? null,
+      input.level ?? null,
       now,
       now,
     )
@@ -81,6 +88,7 @@ export interface UpdateExerciseInput {
   description?: string | null | undefined;
   muscleGroup?: string | null | undefined;
   demoUrl?: string | null | undefined;
+  level?: ExerciseLevel | null | undefined;
 }
 
 // Edición del catálogo — sobre todo pensada para agregarle el enlace de demostración a
@@ -97,12 +105,13 @@ export async function updateExercise(
   const description = patch.description !== undefined ? patch.description : current.description;
   const muscleGroup = patch.muscleGroup !== undefined ? patch.muscleGroup : current.muscleGroup;
   const demoUrl = patch.demoUrl !== undefined ? patch.demoUrl : current.demoUrl;
+  const level = patch.level !== undefined ? patch.level : current.level;
 
   await db
     .prepare(
-      'UPDATE exercises SET name = ?, description = ?, muscle_group = ?, demo_url = ? WHERE id = ?',
+      'UPDATE exercises SET name = ?, description = ?, muscle_group = ?, demo_url = ?, level = ? WHERE id = ?',
     )
-    .bind(name, description, muscleGroup, demoUrl, id)
+    .bind(name, description, muscleGroup, demoUrl, level, id)
     .run();
 
   return getExerciseById(db, id);

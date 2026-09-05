@@ -11,6 +11,7 @@ import {
   updateExercise,
   type CreateRoutineExerciseInput,
   type Exercise,
+  type ExerciseLevel,
   type Member,
   type RoutineSummary,
   type TokenGetter,
@@ -20,6 +21,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Dialog } from '../components/ui/dialog';
 import { Input, Label, Select } from '../components/ui/input';
 import { Badge, type BadgeTone } from '../components/ui/badge';
+
+const LEVEL_LABELS: Record<ExerciseLevel, string> = {
+  beginner: 'Principiante',
+  intermediate: 'Intermedio',
+  advanced: 'Avanzado',
+};
+
+const LEVEL_TONE: Record<ExerciseLevel, BadgeTone> = {
+  beginner: 'success',
+  intermediate: 'warning',
+  advanced: 'danger',
+};
+
+// Principiante primero, luego intermedio, avanzado, y sin nivel al final.
+const LEVEL_ORDER: Array<ExerciseLevel | null> = ['beginner', 'intermediate', 'advanced', null];
+
+function sortByLevel(exercises: Exercise[]): Exercise[] {
+  return [...exercises].sort((a, b) => {
+    const rank = LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level);
+    return rank !== 0 ? rank : a.name.localeCompare(b.name);
+  });
+}
 
 const STATUS_LABELS: Record<RoutineSummary['status'], string> = {
   draft: 'Borrador',
@@ -51,7 +74,7 @@ export default function RoutinesPanel({ getToken }: RoutinesPanelProps) {
     Promise.all([listExercises(getToken), listRoutines(getToken)])
       .then(([exercisesData, routinesData]) => {
         if (cancelled) return;
-        setExercises(exercisesData.items);
+        setExercises(sortByLevel(exercisesData.items));
         setRoutines(routinesData.items);
       })
       .catch((error: unknown) => {
@@ -128,20 +151,33 @@ function ExerciseCatalog({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {exercises.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {exercises.map((exercise) => (
-              <button
-                key={exercise.id}
-                type="button"
-                onClick={() => setEditingExercise(exercise)}
-                title="Editar enlace de demostración"
-              >
-                <Badge tone={exercise.demoUrl ? 'info' : 'default'}>
-                  {exercise.demoUrl && <Link2 className="h-3 w-3" />}
-                  {exercise.name}
-                </Badge>
-              </button>
-            ))}
+          <div className="flex flex-col gap-3">
+            {LEVEL_ORDER.map((level) => {
+              const group = exercises.filter((exercise) => exercise.level === level);
+              if (group.length === 0) return null;
+              return (
+                <div key={level ?? 'none'} className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-chalk-muted">
+                    {level ? LEVEL_LABELS[level] : 'Sin nivel'}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {group.map((exercise) => (
+                      <button
+                        key={exercise.id}
+                        type="button"
+                        onClick={() => setEditingExercise(exercise)}
+                        title="Editar ejercicio"
+                      >
+                        <Badge tone={level ? LEVEL_TONE[level] : 'default'}>
+                          {exercise.demoUrl && <Link2 className="h-3 w-3" />}
+                          {exercise.name}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-chalk-muted">Todavía no hay ejercicios.</p>
@@ -168,10 +204,10 @@ function ExerciseCatalog({
       <Dialog
         open={editingExercise !== null}
         onClose={() => setEditingExercise(null)}
-        title={editingExercise ? `Enlace de demostración — ${editingExercise.name}` : ''}
+        title={editingExercise ? `Editar — ${editingExercise.name}` : ''}
       >
         {editingExercise && (
-          <DemoLinkForm
+          <EditExerciseForm
             getToken={getToken}
             exercise={editingExercise}
             onSaved={() => {
@@ -185,7 +221,7 @@ function ExerciseCatalog({
   );
 }
 
-function DemoLinkForm({
+function EditExerciseForm({
   getToken,
   exercise,
   onSaved,
@@ -195,6 +231,7 @@ function DemoLinkForm({
   onSaved: () => void;
 }) {
   const [demoUrl, setDemoUrl] = useState(exercise.demoUrl ?? '');
+  const [level, setLevel] = useState<ExerciseLevel | ''>(exercise.level ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -203,10 +240,13 @@ function DemoLinkForm({
     setBusy(true);
     setError(null);
     try {
-      await updateExercise(getToken, exercise.id, { demoUrl: demoUrl.trim() || null });
+      await updateExercise(getToken, exercise.id, {
+        demoUrl: demoUrl.trim() || null,
+        level: level || null,
+      });
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el enlace');
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el ejercicio');
     } finally {
       setBusy(false);
     }
@@ -215,7 +255,25 @@ function DemoLinkForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-3">
       <div>
-        <Label htmlFor="demo-url">Enlace (YouTube, o un video/GIF propio)</Label>
+        <Label htmlFor="exercise-level">Nivel</Label>
+        <Select
+          id="exercise-level"
+          value={level}
+          onChange={(event) => setLevel(event.target.value as ExerciseLevel | '')}
+          className="mt-1"
+        >
+          <option value="">Sin nivel</option>
+          {(Object.entries(LEVEL_LABELS) as Array<[ExerciseLevel, string]>).map(
+            ([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ),
+          )}
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="demo-url">Enlace de demostración (YouTube, o un video/GIF propio)</Label>
         <Input
           id="demo-url"
           type="url"
@@ -338,6 +396,7 @@ function CreateRoutineForm({
                   {exercises.map((exercise) => (
                     <option key={exercise.id} value={exercise.id}>
                       {exercise.name}
+                      {exercise.level ? ` (${LEVEL_LABELS[exercise.level]})` : ''}
                     </option>
                   ))}
                 </Select>

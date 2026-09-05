@@ -49,6 +49,7 @@ const sampleExercise: Exercise = {
   description: null,
   muscleGroup: 'piernas',
   demoUrl: null,
+  level: 'beginner',
   isActive: true,
 };
 

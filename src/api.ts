@@ -354,6 +354,8 @@ export function getMyAttendance(
   return apiFetch(getToken, `/api/me/attendance?${search.toString()}`);
 }
 
+export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
+
 export interface Exercise {
   id: string;
   name: string;
@@ -361,6 +363,7 @@ export interface Exercise {
   muscleGroup: string | null;
   // Enlace a un GIF/video corto de demostración (YouTube, o un archivo propio en R2).
   demoUrl: string | null;
+  level: ExerciseLevel | null;
   isActive: boolean;
 }
 
@@ -373,6 +376,7 @@ export interface CreateExerciseInput {
   description?: string | undefined;
   muscleGroup?: string | undefined;
   demoUrl?: string | undefined;
+  level?: ExerciseLevel | undefined;
 }
 
 export function createExercise(
@@ -390,6 +394,7 @@ export interface UpdateExerciseInput {
   description?: string | null;
   muscleGroup?: string | null;
   demoUrl?: string | null;
+  level?: ExerciseLevel | null;
 }
 
 // Pensada sobre todo para agregarle el enlace de demostración a un ejercicio que ya

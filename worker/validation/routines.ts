@@ -3,12 +3,14 @@ import { z } from 'zod';
 // Enlace a un GIF/video de demostración (YouTube, o un archivo propio en R2) — no
 // generación con IA, ver migración 0020. Cualquier URL http(s) válida sirve.
 const demoUrl = z.string().trim().url('Debe ser un enlace válido (https://…)').max(500);
+const exerciseLevel = z.enum(['beginner', 'intermediate', 'advanced']);
 
 export const createExerciseSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es obligatorio').max(200),
   description: z.string().trim().max(2000).optional(),
   muscleGroup: z.string().trim().max(100).optional(),
   demoUrl: demoUrl.optional(),
+  level: exerciseLevel.optional(),
 });
 
 export type CreateExerciseBody = z.infer<typeof createExerciseSchema>;
@@ -19,6 +21,7 @@ export const updateExerciseSchema = z
     description: z.string().trim().max(2000).nullable().optional(),
     muscleGroup: z.string().trim().max(100).nullable().optional(),
     demoUrl: demoUrl.nullable().optional(),
+    level: exerciseLevel.nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Debe incluir al menos un campo para actualizar',
