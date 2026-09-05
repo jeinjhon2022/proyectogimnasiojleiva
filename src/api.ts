@@ -359,6 +359,8 @@ export interface Exercise {
   name: string;
   description: string | null;
   muscleGroup: string | null;
+  // Enlace a un GIF/video corto de demostración (YouTube, o un archivo propio en R2).
+  demoUrl: string | null;
   isActive: boolean;
 }
 
@@ -366,10 +368,40 @@ export function listExercises(getToken: TokenGetter): Promise<{ items: Exercise[
   return apiFetch(getToken, '/api/exercises');
 }
 
-export function createExercise(getToken: TokenGetter, name: string): Promise<Exercise> {
+export interface CreateExerciseInput {
+  name: string;
+  description?: string | undefined;
+  muscleGroup?: string | undefined;
+  demoUrl?: string | undefined;
+}
+
+export function createExercise(
+  getToken: TokenGetter,
+  input: CreateExerciseInput,
+): Promise<Exercise> {
   return apiFetch<Exercise>(getToken, '/api/exercises', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(input),
+  });
+}
+
+export interface UpdateExerciseInput {
+  name?: string;
+  description?: string | null;
+  muscleGroup?: string | null;
+  demoUrl?: string | null;
+}
+
+// Pensada sobre todo para agregarle el enlace de demostración a un ejercicio que ya
+// existía en el catálogo.
+export function updateExercise(
+  getToken: TokenGetter,
+  id: string,
+  patch: UpdateExerciseInput,
+): Promise<Exercise> {
+  return apiFetch<Exercise>(getToken, `/api/exercises/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
   });
 }
 
@@ -386,6 +418,7 @@ export interface RoutineExerciseDetail {
   id: string;
   exerciseId: string;
   exerciseName: string;
+  exerciseDemoUrl: string | null;
   position: number;
   sets: number | null;
   reps: number | null;

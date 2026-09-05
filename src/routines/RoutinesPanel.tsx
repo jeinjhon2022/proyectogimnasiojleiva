@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Loader2, Plus, Search, UserPlus } from 'lucide-react';
+import { Link2, Loader2, Plus, Search, UserPlus } from 'lucide-react';
 import {
   ApiError,
   assignRoutine,
@@ -8,6 +8,7 @@ import {
   listExercises,
   listMembers,
   listRoutines,
+  updateExercise,
   type CreateRoutineExerciseInput,
   type Exercise,
   type Member,
@@ -16,6 +17,7 @@ import {
 } from '../api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Dialog } from '../components/ui/dialog';
 import { Input, Label, Select } from '../components/ui/input';
 import { Badge, type BadgeTone } from '../components/ui/badge';
 
@@ -107,7 +109,7 @@ function ExerciseCatalog({
     setBusy(true);
     setError(null);
     try {
-      await createExercise(getToken, name);
+      await createExercise(getToken, { name });
       setName('');
       onCreated();
     } catch (err) {
@@ -116,6 +118,8 @@ function ExerciseCatalog({
       setBusy(false);
     }
   }
+
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
   return (
     <Card>
@@ -126,7 +130,17 @@ function ExerciseCatalog({
         {exercises.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {exercises.map((exercise) => (
-              <Badge key={exercise.id}>{exercise.name}</Badge>
+              <button
+                key={exercise.id}
+                type="button"
+                onClick={() => setEditingExercise(exercise)}
+                title="Editar enlace de demostración"
+              >
+                <Badge tone={exercise.demoUrl ? 'info' : 'default'}>
+                  {exercise.demoUrl && <Link2 className="h-3 w-3" />}
+                  {exercise.name}
+                </Badge>
+              </button>
             ))}
           </div>
         ) : (
@@ -150,7 +164,84 @@ function ExerciseCatalog({
           </p>
         )}
       </CardContent>
+
+      <Dialog
+        open={editingExercise !== null}
+        onClose={() => setEditingExercise(null)}
+        title={editingExercise ? `Enlace de demostración — ${editingExercise.name}` : ''}
+      >
+        {editingExercise && (
+          <DemoLinkForm
+            getToken={getToken}
+            exercise={editingExercise}
+            onSaved={() => {
+              setEditingExercise(null);
+              onCreated();
+            }}
+          />
+        )}
+      </Dialog>
     </Card>
+  );
+}
+
+function DemoLinkForm({
+  getToken,
+  exercise,
+  onSaved,
+}: {
+  getToken: TokenGetter;
+  exercise: Exercise;
+  onSaved: () => void;
+}) {
+  const [demoUrl, setDemoUrl] = useState(exercise.demoUrl ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await updateExercise(getToken, exercise.id, { demoUrl: demoUrl.trim() || null });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el enlace');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-3">
+      <div>
+        <Label htmlFor="demo-url">Enlace (YouTube, o un video/GIF propio)</Label>
+        <Input
+          id="demo-url"
+          type="url"
+          value={demoUrl}
+          onChange={(event) => setDemoUrl(event.target.value)}
+          placeholder="https://youtube.com/watch?v=…"
+          className="mt-1"
+        />
+        <p className="mt-1 text-xs text-chalk-muted">
+          El socio lo verá al abrir su rutina. Déjalo vacío para quitarlo.
+        </p>
+      </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-1 flex justify-end">
+        <Button type="submit" disabled={busy}>
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          Guardar
+        </Button>
+      </div>
+    </form>
   );
 }
 

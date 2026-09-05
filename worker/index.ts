@@ -53,7 +53,11 @@ import {
   handleKioskCheckIn,
   handleListAttendance,
 } from './routes/attendance';
-import { handleCreateExercise, handleListExercises } from './routes/exercises';
+import {
+  handleCreateExercise,
+  handleListExercises,
+  handleUpdateExercise,
+} from './routes/exercises';
 import {
   handleAssignRoutine,
   handleCreateRoutine,
@@ -306,6 +310,15 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     if (request.method === 'GET') return handleListAttendance(request, env);
     if (request.method === 'POST') return handleCreateAttendance(request, env);
     return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+  }
+
+  const exerciseDetailMatch = url.pathname.match(/^\/api\/exercises\/([^/]+)$/);
+  if (exerciseDetailMatch) {
+    const id = exerciseDetailMatch[1];
+    if (!id) return errorResponse(404, 'NOT_FOUND', 'Recurso no encontrado');
+    if (request.method !== 'PATCH')
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Método no permitido');
+    return handleUpdateExercise(request, env, id);
   }
 
   if (url.pathname === '/api/exercises') {

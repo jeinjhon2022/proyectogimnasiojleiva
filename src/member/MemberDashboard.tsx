@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarCheck, ClipboardList, IdCard, Loader2 } from 'lucide-react';
+import { CalendarCheck, ClipboardList, IdCard, Link2, Loader2 } from 'lucide-react';
 import {
   ApiError,
   getAttendanceSummary,
@@ -246,7 +246,19 @@ function MyRoutineSection({ getToken }: { getToken: TokenGetter }) {
             <ol className="flex flex-col gap-2">
               {state.data.routine.exercises.map((exercise) => (
                 <li key={exercise.id} className="rounded-lg border border-line p-2.5 text-sm">
-                  <p className="font-medium text-chalk">{exercise.exerciseName}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-chalk">{exercise.exerciseName}</p>
+                    {exercise.exerciseDemoUrl && (
+                      <a
+                        href={exercise.exerciseDemoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-wide text-accent hover:underline"
+                      >
+                        <Link2 className="h-3.5 w-3.5" /> Ver demostración
+                      </a>
+                    )}
+                  </div>
                   <p className="text-chalk-muted">
                     {exercise.sets ? `${exercise.sets} series` : ''}
                     {exercise.reps ? ` × ${exercise.reps} reps` : ''}

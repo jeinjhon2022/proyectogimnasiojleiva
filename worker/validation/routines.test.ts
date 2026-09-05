@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { assignRoutineSchema, createExerciseSchema, createRoutineSchema } from './routines';
+import {
+  assignRoutineSchema,
+  createExerciseSchema,
+  createRoutineSchema,
+  updateExerciseSchema,
+} from './routines';
 
 describe('createExerciseSchema', () => {
   it('acepta solo el nombre', () => {
@@ -8,6 +13,37 @@ describe('createExerciseSchema', () => {
 
   it('rechaza sin nombre', () => {
     expect(createExerciseSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('acepta un enlace de demostración válido', () => {
+    expect(
+      createExerciseSchema.safeParse({
+        name: 'Sentadilla',
+        demoUrl: 'https://youtube.com/watch?v=abc',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rechaza un enlace de demostración que no es una URL', () => {
+    expect(
+      createExerciseSchema.safeParse({ name: 'Sentadilla', demoUrl: 'no es un link' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('updateExerciseSchema', () => {
+  it('rechaza un objeto vacío', () => {
+    expect(updateExerciseSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('acepta solo demoUrl (agregar el enlace a un ejercicio ya existente)', () => {
+    expect(
+      updateExerciseSchema.safeParse({ demoUrl: 'https://youtube.com/watch?v=abc' }).success,
+    ).toBe(true);
+  });
+
+  it('permite poner demoUrl en null (quitarlo)', () => {
+    expect(updateExerciseSchema.safeParse({ demoUrl: null }).success).toBe(true);
   });
 });
 

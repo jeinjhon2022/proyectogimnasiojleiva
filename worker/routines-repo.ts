@@ -12,6 +12,7 @@ export interface RoutineExerciseDetail {
   id: string;
   exerciseId: string;
   exerciseName: string;
+  exerciseDemoUrl: string | null;
   position: number;
   sets: number | null;
   reps: number | null;
@@ -47,6 +48,7 @@ interface RoutineExerciseRow {
   id: string;
   exercise_id: string;
   exercise_name: string;
+  exercise_demo_url: string | null;
   position: number;
   sets: number | null;
   reps: number | null;
@@ -61,6 +63,7 @@ function mapRoutineExerciseRow(row: RoutineExerciseRow): RoutineExerciseDetail {
     id: row.id,
     exerciseId: row.exercise_id,
     exerciseName: row.exercise_name,
+    exerciseDemoUrl: row.exercise_demo_url,
     position: row.position,
     sets: row.sets,
     reps: row.reps,
@@ -77,7 +80,8 @@ async function getRoutineExercises(
 ): Promise<RoutineExerciseDetail[]> {
   const result = await db
     .prepare(
-      `SELECT re.id, re.exercise_id, e.name AS exercise_name, re.position, re.sets, re.reps,
+      `SELECT re.id, re.exercise_id, e.name AS exercise_name, e.demo_url AS exercise_demo_url,
+              re.position, re.sets, re.reps,
               re.duration_seconds, re.distance_meters, re.rest_seconds, re.notes
        FROM routine_exercises re
        JOIN exercises e ON e.id = re.exercise_id

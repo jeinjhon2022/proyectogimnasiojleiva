@@ -83,6 +83,7 @@ const sampleRoutine: RoutineDetail = {
       id: 're1',
       exerciseId: 'ex1',
       exerciseName: 'Sentadilla',
+      exerciseDemoUrl: null,
       position: 0,
       sets: 4,
       reps: 8,

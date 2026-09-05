@@ -10,12 +10,15 @@ vi.mock('../authenticate', async (importOriginal) => {
 
 const listExercisesMock = vi.fn();
 const createExerciseMock = vi.fn();
+const updateExerciseMock = vi.fn();
 vi.mock('../exercises-repo', () => ({
   listExercises: (...args: unknown[]) => listExercisesMock(...args),
   createExercise: (...args: unknown[]) => createExerciseMock(...args),
+  updateExercise: (...args: unknown[]) => updateExerciseMock(...args),
 }));
 
-const { handleListExercises, handleCreateExercise } = await import('./exercises');
+const { handleListExercises, handleCreateExercise, handleUpdateExercise } =
+  await import('./exercises');
 
 const fakeEnv = {} as Env;
 const admin = {
@@ -45,6 +48,7 @@ const sampleExercise: Exercise = {
   name: 'Sentadilla',
   description: null,
   muscleGroup: 'piernas',
+  demoUrl: null,
   isActive: true,
 };
 
@@ -52,6 +56,7 @@ beforeEach(() => {
   authenticateMock.mockReset();
   listExercisesMock.mockReset();
   createExerciseMock.mockReset();
+  updateExerciseMock.mockReset();
 });
 
 describe('GET /api/exercises', () => {
@@ -95,5 +100,60 @@ describe('POST /api/exercises', () => {
     });
     const response = await handleCreateExercise(request, fakeEnv);
     expect(response.status).toBe(201);
+  });
+});
+
+describe('PATCH /api/exercises/:id', () => {
+  function makeRequest(body: unknown) {
+    return new Request('https://x.test/api/exercises/ex1', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('responde 403 para recepcionista', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: receptionist });
+    const response = await handleUpdateExercise(
+      makeRequest({ demoUrl: 'https://youtube.com/watch?v=abc' }),
+      fakeEnv,
+      'ex1',
+    );
+    expect(response.status).toBe(403);
+    expect(updateExerciseMock).not.toHaveBeenCalled();
+  });
+
+  it('responde 422 con un enlace inválido', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: trainer });
+    const response = await handleUpdateExercise(
+      makeRequest({ demoUrl: 'no es un link' }),
+      fakeEnv,
+      'ex1',
+    );
+    expect(response.status).toBe(422);
+  });
+
+  it('responde 404 si el ejercicio no existe', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: admin });
+    updateExerciseMock.mockResolvedValue(null);
+    const response = await handleUpdateExercise(
+      makeRequest({ demoUrl: 'https://youtube.com/watch?v=abc' }),
+      fakeEnv,
+      'no-existe',
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it('responde 200 agregando el enlace de demostración', async () => {
+    authenticateMock.mockResolvedValue({ kind: 'authenticated', user: trainer });
+    updateExerciseMock.mockResolvedValue({
+      ...sampleExercise,
+      demoUrl: 'https://youtube.com/watch?v=abc',
+    });
+    const response = await handleUpdateExercise(
+      makeRequest({ demoUrl: 'https://youtube.com/watch?v=abc' }),
+      fakeEnv,
+      'ex1',
+    );
+    expect(response.status).toBe(200);
   });
 });
