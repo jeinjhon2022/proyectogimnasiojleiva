@@ -77,6 +77,8 @@ const sampleSummary: CashSessionSummary = {
   session: sampleSession,
   paymentIncomeByMethod: { cash: 0, transfer: 0, card_in_person: 0, other: 0 },
   totalPaymentIncome: 0,
+  productSaleIncomeByMethod: { cash: 0, transfer: 0, card_in_person: 0, other: 0 },
+  totalProductSaleIncome: 0,
   manualIncomeByMethod: { cash: 0, transfer: 0, card_in_person: 0, other: 0 },
   totalManualIncome: 0,
   manualExpenseByMethod: { cash: 0, transfer: 0, card_in_person: 0, other: 0 },
@@ -86,6 +88,7 @@ const sampleSummary: CashSessionSummary = {
   expectedCash: 100,
   movements: [],
   payments: [],
+  productSales: [],
 };
 
 beforeEach(() => {

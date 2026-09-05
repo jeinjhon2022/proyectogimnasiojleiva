@@ -486,10 +486,21 @@ export interface CashSessionPayment {
   paymentDate: string;
 }
 
+export interface CashSessionProductSale {
+  id: string;
+  productName: string;
+  quantity: number;
+  total: number;
+  method: CashMovementMethod;
+  createdAt: string;
+}
+
 export interface CashSessionSummary {
   session: CashSession;
   paymentIncomeByMethod: Record<CashMovementMethod, number>;
   totalPaymentIncome: number;
+  productSaleIncomeByMethod: Record<CashMovementMethod, number>;
+  totalProductSaleIncome: number;
   manualIncomeByMethod: Record<CashMovementMethod, number>;
   totalManualIncome: number;
   manualExpenseByMethod: Record<CashMovementMethod, number>;
@@ -499,6 +510,7 @@ export interface CashSessionSummary {
   expectedCash: number;
   movements: CashMovement[];
   payments: CashSessionPayment[];
+  productSales: CashSessionProductSale[];
 }
 
 export function getCurrentCashSession(
@@ -558,4 +570,128 @@ export function createCashMovement(
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+// ---------- Productos y stock ----------
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock: number;
+  minStockAlert: number;
+  isActive: boolean;
+}
+
+export type ProductStatusFilter = 'all' | 'active' | 'inactive';
+
+export function listProducts(
+  getToken: TokenGetter,
+  params: { page?: number; pageSize?: number; status?: ProductStatusFilter } = {},
+): Promise<{ items: Product[]; total: number; page: number; pageSize: number }> {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 1));
+  search.set('pageSize', String(params.pageSize ?? 50));
+  if (params.status) search.set('status', params.status);
+  return apiFetch(getToken, `/api/products?${search.toString()}`);
+}
+
+export interface ProductSalesSummary {
+  totalToday: number;
+  quantityToday: number;
+  activeProductCount: number;
+}
+
+export function getProductsSummary(getToken: TokenGetter): Promise<ProductSalesSummary> {
+  return apiFetch(getToken, '/api/products/summary');
+}
+
+export interface CreateProductInput {
+  name: string;
+  description?: string | undefined;
+  price: number;
+  stock: number;
+  minStockAlert: number;
+}
+
+export function createProduct(getToken: TokenGetter, input: CreateProductInput): Promise<Product> {
+  return apiFetch<Product>(getToken, '/api/products', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export interface UpdateProductInput {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  minStockAlert?: number;
+}
+
+export function updateProduct(
+  getToken: TokenGetter,
+  id: string,
+  patch: UpdateProductInput,
+): Promise<Product> {
+  return apiFetch<Product>(getToken, `/api/products/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export function adjustProductStock(
+  getToken: TokenGetter,
+  id: string,
+  input: { delta: number; reason: string },
+): Promise<Product> {
+  return apiFetch<Product>(getToken, `/api/products/${id}/stock`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deactivateProduct(getToken: TokenGetter, id: string): Promise<Product> {
+  return apiFetch<Product>(getToken, `/api/products/${id}/deactivate`, { method: 'POST' });
+}
+
+export function activateProduct(getToken: TokenGetter, id: string): Promise<Product> {
+  return apiFetch<Product>(getToken, `/api/products/${id}/activate`, { method: 'POST' });
+}
+
+export interface ProductSale {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  method: CashMovementMethod;
+  createdAt: string;
+}
+
+export interface SellProductResult {
+  sale: ProductSale;
+  product: Product;
+}
+
+export function sellProduct(
+  getToken: TokenGetter,
+  productId: string,
+  input: { quantity: number; method: CashMovementMethod },
+): Promise<SellProductResult> {
+  return apiFetch<SellProductResult>(getToken, `/api/products/${productId}/sell`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listProductSales(
+  getToken: TokenGetter,
+  params: { page?: number; pageSize?: number } = {},
+): Promise<{ items: ProductSale[]; total: number; page: number; pageSize: number }> {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? 1));
+  search.set('pageSize', String(params.pageSize ?? 20));
+  return apiFetch(getToken, `/api/products/sales?${search.toString()}`);
 }

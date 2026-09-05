@@ -7,6 +7,7 @@ import {
   Fingerprint,
   LayoutGrid,
   Loader2,
+  Package,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import RoutinesPanel from './routines/RoutinesPanel';
 import MemberDashboard from './member/MemberDashboard';
 import KioskCheckIn from './attendance/KioskCheckIn';
 import CashRegisterPanel from './cash/CashRegisterPanel';
+import ProductsPanel from './products/ProductsPanel';
 import OfflineBanner from './OfflineBanner';
 import { Badge } from './components/ui/badge';
 import type { Role } from './api';
@@ -54,6 +56,7 @@ function navItemsForRole(role: Role): NavItem[] {
         { id: 'checkin', label: 'Check-in', icon: Fingerprint },
         { id: 'socios', label: 'Socios', icon: Users },
         { id: 'caja', label: 'Caja', icon: Wallet },
+        { id: 'productos', label: 'Productos', icon: Package },
         { id: 'rutinas', label: 'Rutinas', icon: ClipboardList },
       ];
     case 'receptionist':
@@ -61,6 +64,7 @@ function navItemsForRole(role: Role): NavItem[] {
         { id: 'checkin', label: 'Check-in', icon: Fingerprint },
         { id: 'socios', label: 'Socios', icon: Users },
         { id: 'caja', label: 'Caja', icon: Wallet },
+        { id: 'productos', label: 'Productos', icon: Package },
       ];
     case 'trainer':
       return [{ id: 'rutinas', label: 'Rutinas', icon: ClipboardList }];
@@ -290,6 +294,12 @@ function AuthenticatedHome() {
       {(role === 'admin' || role === 'receptionist') && (
         <div id="caja">
           <CashRegisterPanel getToken={getToken} />
+        </div>
+      )}
+
+      {(role === 'admin' || role === 'receptionist') && (
+        <div id="productos">
+          <ProductsPanel getToken={getToken} />
         </div>
       )}
 

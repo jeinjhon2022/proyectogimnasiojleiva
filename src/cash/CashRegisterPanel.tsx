@@ -176,6 +176,14 @@ function TodaySession({ getToken }: { getToken: TokenGetter }) {
       method: payment.method,
       amount: payment.amount,
     })),
+    ...summary.productSales.map((sale) => ({
+      id: sale.id,
+      timestamp: sale.createdAt,
+      kind: 'income' as const,
+      origin: `Venta — ${sale.productName} x${sale.quantity}`,
+      method: sale.method,
+      amount: sale.total,
+    })),
     ...summary.movements.map((movement) => ({
       id: movement.id,
       timestamp: movement.createdAt,

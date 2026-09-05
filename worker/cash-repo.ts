@@ -1,3 +1,5 @@
+import { listSalesByCashSession } from './products-repo';
+
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType = 'manual_income' | 'manual_expense';
 export type CashMovementMethod = 'cash' | 'transfer' | 'card_in_person' | 'other';
@@ -236,6 +238,9 @@ export interface CashSessionSummary {
   // Ingresos por pagos de socios (cuotas y cobros de deuda) atados a esta caja.
   paymentIncomeByMethod: Record<CashMovementMethod, number>;
   totalPaymentIncome: number;
+  // Ingresos por venta de productos atados a esta caja.
+  productSaleIncomeByMethod: Record<CashMovementMethod, number>;
+  totalProductSaleIncome: number;
   manualIncomeByMethod: Record<CashMovementMethod, number>;
   totalManualIncome: number;
   manualExpenseByMethod: Record<CashMovementMethod, number>;
@@ -253,6 +258,14 @@ export interface CashSessionSummary {
     amount: number;
     method: CashMovementMethod;
     paymentDate: string;
+  }>;
+  productSales: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    total: number;
+    method: CashMovementMethod;
+    createdAt: string;
   }>;
 }
 
@@ -280,12 +293,22 @@ export async function getSessionSummary(
     .all<CashPaymentRow>();
 
   const movements = await listMovementsBySession(db, session.id);
+  const productSales = await listSalesByCashSession(db, session.id);
 
   const paymentIncomeByMethod = emptyMethodRecord();
   for (const row of paymentsResult.results) {
     paymentIncomeByMethod[row.method as CashMovementMethod] += row.amount;
   }
   const totalPaymentIncome = Object.values(paymentIncomeByMethod).reduce((a, b) => a + b, 0);
+
+  const productSaleIncomeByMethod = emptyMethodRecord();
+  for (const sale of productSales) {
+    productSaleIncomeByMethod[sale.method] += sale.total;
+  }
+  const totalProductSaleIncome = Object.values(productSaleIncomeByMethod).reduce(
+    (a, b) => a + b,
+    0,
+  );
 
   const manualIncomeByMethod = emptyMethodRecord();
   const manualExpenseByMethod = emptyMethodRecord();
@@ -296,12 +319,13 @@ export async function getSessionSummary(
   const totalManualIncome = Object.values(manualIncomeByMethod).reduce((a, b) => a + b, 0);
   const totalManualExpense = Object.values(manualExpenseByMethod).reduce((a, b) => a + b, 0);
 
-  const totalIncomes = totalPaymentIncome + totalManualIncome;
+  const totalIncomes = totalPaymentIncome + totalProductSaleIncome + totalManualIncome;
   const totalExpenses = totalManualExpense;
 
   const expectedCash =
     session.initialBalance +
     paymentIncomeByMethod.cash +
+    productSaleIncomeByMethod.cash +
     manualIncomeByMethod.cash -
     manualExpenseByMethod.cash;
 
@@ -309,6 +333,8 @@ export async function getSessionSummary(
     session,
     paymentIncomeByMethod,
     totalPaymentIncome,
+    productSaleIncomeByMethod,
+    totalProductSaleIncome,
     manualIncomeByMethod,
     totalManualIncome,
     manualExpenseByMethod,
@@ -317,6 +343,14 @@ export async function getSessionSummary(
     totalExpenses,
     expectedCash,
     movements,
+    productSales: productSales.map((sale) => ({
+      id: sale.id,
+      productName: sale.productName,
+      quantity: sale.quantity,
+      total: sale.total,
+      method: sale.method,
+      createdAt: sale.createdAt,
+    })),
     payments: paymentsResult.results.map((row) => ({
       id: row.id,
       memberId: row.member_id,
